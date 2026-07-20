@@ -13,3 +13,4 @@ src-tauri/macos/generated
 src-tauri/gen/schemas
 
 *.apps.googleusercontent.com.json
+*.zip
