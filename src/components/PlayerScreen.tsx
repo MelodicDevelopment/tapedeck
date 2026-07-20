@@ -177,7 +177,7 @@ export function PlayerScreen({
   // Scrolls only the list itself so the rest of the layout never jumps.
   useEffect(() => {
     const list = trackListRef.current
-    if (!list) return
+    if (!list || typeof list.scrollTo !== 'function') return
     const row = list.querySelector('[aria-current="true"]')?.closest('li')
     if (!row) return
     const listRect = list.getBoundingClientRect()
