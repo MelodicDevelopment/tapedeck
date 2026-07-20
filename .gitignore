@@ -1,0 +1,13 @@
+node_modules
+dist
+.DS_Store
+*.local
+.env
+.env.*
+!.env.example
+*.tsbuildinfo
+vite.config.js
+vite.config.d.ts
+src-tauri/target
+src-tauri/macos/generated
+src-tauri/gen/schemas

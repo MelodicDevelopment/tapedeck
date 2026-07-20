@@ -1,0 +1,36 @@
+[package]
+name = "tapedeck"
+version = "0.2.0"
+description = "A focused desktop YouTube listening queue"
+authors = ["Melodic Development"]
+edition = "2021"
+rust-version = "1.77.2"
+
+[lib]
+name = "tapedeck_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+base64 = "0.22"
+keyring = { version = "3.6.3", default-features = false, features = ["apple-native", "windows-native", "sync-secret-service", "crypto-rust"] }
+open = "5.4"
+percent-encoding = "2.3"
+rand = "0.8"
+reqwest = { version = "0.12.24", default-features = false, features = ["json", "rustls-tls"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sha2 = "0.10"
+tauri = { version = "2", features = [] }
+tauri-plugin-localhost = "2"
+tauri-plugin-single-instance = "2"
+url = "2"
+
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = "s"
+panic = "abort"
+strip = true

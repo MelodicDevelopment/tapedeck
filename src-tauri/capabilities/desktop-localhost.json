@@ -1,0 +1,16 @@
+{
+  "$schema": "../gen/schemas/remote-schema.json",
+  "identifier": "desktop-localhost",
+  "description": "Allow Tapedeck's bundled localhost UI to use its narrow desktop commands.",
+  "windows": ["main"],
+  "remote": {
+    "urls": ["http://localhost:14321", "http://127.0.0.1:5173"]
+  },
+  "permissions": [
+    "core:default",
+    "allow-google-auth-status",
+    "allow-sign-in-with-google",
+    "allow-sign-out-google",
+    "allow-resolve-youtube-source"
+  ]
+}

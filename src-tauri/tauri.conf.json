@@ -1,0 +1,39 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Tapedeck",
+  "version": "0.2.0",
+  "identifier": "com.melodicdevelopment.tapedeck",
+  "build": {
+    "beforeDevCommand": "npm run dev:client",
+    "devUrl": "http://127.0.0.1:5173",
+    "beforeBuildCommand": "npm run build && npm run desktop:icon:macos",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [],
+    "security": {
+      "csp": "default-src 'self'; base-uri 'self'; object-src 'none'; script-src 'self' https://www.youtube.com https://s.ytimg.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: https://i.ytimg.com https://yt3.ggpht.com https://yt3.googleusercontent.com; frame-src https://www.youtube.com https://www.youtube-nocookie.com; connect-src 'self' http://127.0.0.1:* ws://127.0.0.1:* https:; media-src https: blob:"
+    }
+  },
+  "bundle": {
+    "active": true,
+    "category": "Music",
+    "copyright": "Copyright © 2026 Melodic Development",
+    "shortDescription": "A focused YouTube music player",
+    "longDescription": "Turn YouTube channels and playlists into a focused, sequential listening queue.",
+    "targets": "all",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "macOS": {
+      "files": {
+        "Resources/AppIcon.icns": "macos/generated/AppIcon.icns",
+        "Resources/Assets.car": "macos/generated/Assets.car"
+      }
+    }
+  }
+}

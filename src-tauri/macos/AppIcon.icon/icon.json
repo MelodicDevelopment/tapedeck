@@ -1,0 +1,33 @@
+{
+  "fill": {
+    "solid": "srgb:0.54510,0.49804,0.94118,1.00000"
+  },
+  "groups": [
+    {
+      "layers": [
+        {
+          "glass": false,
+          "image-name": "play.svg",
+          "name": "Play"
+        },
+        {
+          "glass": false,
+          "image-name": "background.svg",
+          "name": "Violet background"
+        }
+      ],
+      "shadow": {
+        "kind": "none",
+        "opacity": 0.5
+      },
+      "specular": false,
+      "translucency": {
+        "enabled": false,
+        "value": 0.1
+      }
+    }
+  ],
+  "supported-platforms": {
+    "squares": "shared"
+  }
+}
