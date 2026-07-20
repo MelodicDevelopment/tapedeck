@@ -12,5 +12,8 @@ src-tauri/target
 src-tauri/macos/generated
 src-tauri/gen/schemas
 
+# Machine-local signing identity (Tauri merges this platform config when present)
+src-tauri/tauri.macos.conf.json
+
 *.apps.googleusercontent.com.json
 *.zip
