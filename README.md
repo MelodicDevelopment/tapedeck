@@ -1,115 +1,122 @@
 # Tapedeck
 
-Tapedeck is a lightweight Tauri 2 desktop player that turns a YouTube channel or playlist into a focused, sequential listening queue. Videos always play through the visible official YouTube embedded player; Tapedeck does not download or extract audio.
+**Your music, less noise.** Tapedeck is a lightweight desktop player that turns any YouTube channel or playlist into a focused, distraction-free listening queue — no comments, no recommendations, no rabbit holes.
 
-## Why Tauri
+[![CI](https://github.com/MelodicDevelopment/tapedeck/actions/workflows/ci.yml/badge.svg)](https://github.com/MelodicDevelopment/tapedeck/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-8b7ff0.svg)](LICENSE)
+[![Built with Tauri 2](https://img.shields.io/badge/Tauri-2-24C8DB?logo=tauri&logoColor=white)](https://v2.tauri.app)
+[![React](https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=white)](https://react.dev)
+[![Rust](https://img.shields.io/badge/Rust-stable-DEA584?logo=rust&logoColor=white)](https://www.rust-lang.org)
 
-Tauri uses the operating system webview instead of bundling Chromium. That gives Tapedeck a substantially smaller distribution and lower idle-memory baseline than an Electron shell while preserving the existing React interface.
+![Tapedeck welcome screen with saved channels and mixtapes](docs/screenshot.png)
 
-The tradeoff is that rendering uses WKWebView on macOS, WebView2 on Windows, and WebKitGTK on Linux. The normal browser build remains supported as a fallback.
+Videos always play through the visible, official YouTube embedded player. Tapedeck never downloads or extracts audio — it is a *player*, not a downloader.
 
-## Architecture
+## Features
 
-- React, TypeScript, and Vite interface
-- Tauri 2 Rust host and native application window
-- A locked-down localhost origin for packaged assets so the official YouTube player receives HTTP client identity/referrer information
-- Single-instance protection so multiple launches cannot compete for that private player origin
-- Google OAuth for installed apps using the system browser, PKCE, a random loopback callback port, and state validation
-- Refresh tokens stored in the operating system credential vault; short-lived access tokens remain in memory
-- Direct, authenticated calls from the Rust host to the official YouTube Data API
-- YouTube IFrame Player API for visible, controlled playback
-- Optional Express/API-key fallback for the browser build
-- Vitest, Testing Library, ESLint, Rustfmt, and Clippy verification
+- **Paste a URL, get a queue** — channels (handles, IDs, legacy usernames), playlists, and YouTube Music links all resolve into a clean track list
+- **Mixtapes** — build your own playlists from videos across any channels; they play instantly and live entirely on your machine
+- **Library** — every source you load is saved for one-click replay
+- **Real player controls** — shuffle, repeat (playlist or single song), autoplay, and a queue that follows the playing track
+- **OS integration** — hardware media keys (play/pause/next/previous), Now Playing metadata in the macOS Control Center, and background playback when the window is closed
+- **Keyboard shortcuts** — Space to play/pause, arrow keys for volume
+- **Privacy-respecting by design** — no Tapedeck account, no telemetry, no database; your Google login exists solely to make read-only YouTube API calls, and the refresh token lives in your OS credential vault
 
-The localhost-served desktop page is granted only Tapedeck's compiled commands. It has no general filesystem or shell access.
+## Installation
 
-## Desktop development
+There are no prebuilt releases yet — you build Tapedeck yourself (about two minutes once the toolchain is installed). Prebuilt, signed releases are on the roadmap.
 
-Requirements:
+### Prerequisites
 
-- Node.js 20 or newer
-- Rust stable
-- Platform prerequisites from the [Tauri setup guide](https://v2.tauri.app/start/prerequisites/)
-- A Google Cloud project with YouTube Data API v3 enabled
-- A Google OAuth client whose application type is **Desktop app**
+- [Node.js](https://nodejs.org) 20 or newer
+- [Rust](https://rustup.rs) stable
+- Platform dependencies from the [Tauri setup guide](https://v2.tauri.app/start/prerequisites/)
+- macOS packaging additionally requires Xcode 26+ (for the icon catalog)
+- A Google OAuth **Desktop app** client (free — see [Google Cloud setup](#google-cloud-setup))
+
+### Build and run
 
 ```sh
-cp .env.example .env
-# Add TAPEDECK_GOOGLE_CLIENT_ID and TAPEDECK_GOOGLE_CLIENT_SECRET to .env.
-# Google requires the Desktop-app client secret at the token endpoint even
-# with PKCE, and treats installed-app secrets as non-confidential.
-
+git clone https://github.com/MelodicDevelopment/tapedeck.git
+cd tapedeck
+cp .env.example .env   # add your Google OAuth client ID + secret
 npm install
-npm run desktop
+npm run desktop        # development app
+npm run desktop:build  # packaged .app / installer
 ```
 
-`npm run desktop` starts Vite and the native Tauri window. Tapedeck opens Google sign-in in the user's default browser, then receives the result on a temporary `127.0.0.1` port. The explicit demo playlist works without Google configuration.
+The demo playlist works with zero configuration if you just want to see it run.
 
 ### Google Cloud setup
 
-1. Enable **YouTube Data API v3** in the Google Cloud project.
-2. Configure the OAuth consent screen. During development, add intended accounts as test users.
+Sign-in uses your **own** OAuth client, so your usage is never mixed with anyone else's:
+
+1. Create a [Google Cloud](https://console.cloud.google.com) project and enable **YouTube Data API v3**.
+2. Configure the OAuth consent screen; add your Google account as a test user.
 3. Create **Credentials → OAuth client ID → Desktop app**.
-4. Copy the resulting client ID (ending in `.apps.googleusercontent.com`) into `.env` as `TAPEDECK_GOOGLE_CLIENT_ID`, and the client secret as `TAPEDECK_GOOGLE_CLIENT_SECRET`.
+4. Put the client ID and secret in `.env` as `TAPEDECK_GOOGLE_CLIENT_ID` and `TAPEDECK_GOOGLE_CLIENT_SECRET`.
 
-Tapedeck requests `youtube.readonly`, `openid`, `email`, and `profile`. A public release may require completing Google's OAuth app verification and publishing requirements for the YouTube read-only scope.
+Both values are embedded at build time. Google requires the Desktop-app secret at the token endpoint even with PKCE and [documents installed-app secrets as non-confidential](https://developers.google.com/identity/protocols/oauth2#installed) — but keep `.env` out of source control regardless.
 
-## Package the desktop app
+Tapedeck requests `youtube.readonly`, `openid`, `email`, and `profile` — nothing that can modify your account.
 
-A distributable desktop build embeds the Desktop OAuth client ID and secret from `.env`:
+## How it works
 
-```sh
-npm run desktop:build
-```
+| Layer | Choice | Why |
+|---|---|---|
+| Shell | Tauri 2 (Rust) | Uses the OS webview instead of bundling Chromium — small binary, low idle memory |
+| UI | React + TypeScript + Vite | Fast iteration, typed end to end |
+| Playback | YouTube IFrame Player API | Official, visible embed — compliant playback with ads/analytics intact |
+| Data | YouTube Data API v3 | Called directly from the Rust host with the user's short-lived access token |
+| Auth | OAuth installed-app flow | System browser + PKCE + loopback callback + state validation |
+| Secrets | OS credential vault | Refresh token in Keychain/Credential Manager; access tokens stay in memory |
+| Storage | JSON in the app data dir | Library and mixtapes; no server, no accounts |
 
-No YouTube API key or Tapedeck API endpoint is included in or required by the desktop package. The embedded Desktop OAuth credentials are the kind Google designates non-confidential for installed apps; keep `.env` and the downloaded client JSON out of source control regardless.
+A few deliberate architecture points:
 
-The macOS outputs are written under:
+- The packaged UI is served from a locked-down localhost origin so the YouTube player receives ordinary HTTP client identity; a single-instance guard keeps that origin private.
+- The webview is granted **only** Tapedeck's compiled commands — no general filesystem or shell access.
+- DNS resolves in-process (system nameservers with public fallback) and Google/YouTube requests retry transparently, so flaky networks don't surface as broken sign-ins.
+- An optional Express server (`npm run dev`) provides an API-key-based fallback for running Tapedeck as a plain browser app.
 
-```text
-src-tauri/target/release/bundle/macos/Tapedeck.app
-src-tauri/target/release/bundle/dmg/Tapedeck_<version>_aarch64.dmg
-```
-
-Windows and Linux packages must be built on their respective platforms. Public distribution additionally requires platform code signing and, on macOS, notarization.
-
-## Run the API or browser fallback
-
-The Express service is retained only for the standalone browser build. Configure `YOUTUBE_API_KEY` using `.env.example`, then:
-
-```sh
-npm run dev       # Express API and Vite browser app
-npm run build
-npm start         # production Express API and browser build
-```
-
-For a hosted browser API, set `CORS_ORIGINS` to the allowed browser origins and `VITE_API_BASE_URL` to its public address.
-
-## Quality checks
+## Development
 
 ```sh
-npm run typecheck
-npm run lint
-npm test
+npm run desktop     # Tauri dev app (Vite + native window)
+npm run dev         # browser app + Express API fallback
+npm test            # Vitest + Testing Library
+npm run lint        # ESLint
+npm run typecheck   # tsc
 
 cd src-tauri
+cargo test
 cargo fmt --check
 cargo clippy --all-targets --all-features -- -D warnings
 ```
 
-## YouTube integration
+Project layout:
 
-The desktop Rust host calls the official YouTube Data API with the signed-in user's short-lived access token. It:
+```text
+src/                 React UI (components, lib = pure logic, api = Tauri/HTTP bridges)
+src-tauri/src/       Rust host: auth, youtube, media (OS media keys), library, dns
+server/              optional Express fallback for the browser build
+```
 
-- resolves handles, channel IDs, legacy usernames/custom URLs, and playlist URLs;
-- maps channels to their uploads playlist;
-- paginates playlist items;
-- fetches durations and embeddability in batches;
-- marks private, removed, or non-embeddable entries unavailable;
-- never downloads media and returns only source and track metadata to the interface.
+## Contributing
 
-The optional Express fallback exposes the same normalized response at `POST /api/youtube/resolve`, using the server-only `YOUTUBE_API_KEY`.
+Contributions are welcome — bug reports, features, docs, and platform testing (Windows and Linux builds especially need eyes). Start with [CONTRIBUTING.md](CONTRIBUTING.md), then open an issue to discuss anything non-trivial before writing code.
 
-## Product scope
+One hard boundary: Tapedeck plays YouTube through the official embed and APIs. Pull requests that add downloading, audio extraction, ad blocking, or background/hidden playback of the video stream will be declined — they'd put every user of the project at odds with YouTube's Terms of Service.
 
-Tapedeck has no Tapedeck account system, authentication database, comments, recommendations, downloads, audio extraction, or playlist editing. Google login exists only to authorize read-only official YouTube API requests. The checked-in demo metadata is the only mocked data; pasted URLs use the official YouTube Data API.
+## Roadmap
+
+- Prebuilt, notarized releases via GitHub Actions
+- Windows and Linux packaging verification
+- Drag-to-reorder mixtapes
+- Import/export of the library
+
+## License
+
+[MIT](LICENSE) © Rick Hopkins (Melodic Development)
+
+Tapedeck is an independent project, not affiliated with or endorsed by YouTube or Google. YouTube is a trademark of Google LLC.
