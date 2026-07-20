@@ -11,3 +11,5 @@ vite.config.d.ts
 src-tauri/target
 src-tauri/macos/generated
 src-tauri/gen/schemas
+
+*.apps.googleusercontent.com.json
