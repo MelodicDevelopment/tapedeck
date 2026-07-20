@@ -27,13 +27,26 @@ const MEDIA_CONTROL_EVENT: &str = "media-control";
 
 fn payload_for(event: MediaControlEvent) -> Option<MediaControlPayload> {
     let payload = match event {
-        MediaControlEvent::Play => MediaControlPayload { action: "play", value: None },
-        MediaControlEvent::Pause | MediaControlEvent::Stop => {
-            MediaControlPayload { action: "pause", value: None }
-        }
-        MediaControlEvent::Toggle => MediaControlPayload { action: "toggle", value: None },
-        MediaControlEvent::Next => MediaControlPayload { action: "next", value: None },
-        MediaControlEvent::Previous => MediaControlPayload { action: "previous", value: None },
+        MediaControlEvent::Play => MediaControlPayload {
+            action: "play",
+            value: None,
+        },
+        MediaControlEvent::Pause | MediaControlEvent::Stop => MediaControlPayload {
+            action: "pause",
+            value: None,
+        },
+        MediaControlEvent::Toggle => MediaControlPayload {
+            action: "toggle",
+            value: None,
+        },
+        MediaControlEvent::Next => MediaControlPayload {
+            action: "next",
+            value: None,
+        },
+        MediaControlEvent::Previous => MediaControlPayload {
+            action: "previous",
+            value: None,
+        },
         MediaControlEvent::SetPosition(MediaPosition(position)) => MediaControlPayload {
             action: "seek",
             value: Some(position.as_secs_f64()),
@@ -113,7 +126,9 @@ pub fn init(app: &AppHandle, window: &WebviewWindow) -> Result<(), Box<dyn std::
     std::thread::spawn(move || {
         std::thread::sleep(std::time::Duration::from_millis(500));
         let state = tauri::Manager::state::<MediaState>(&handle);
-        let Ok(mut guard) = state.0.lock() else { return };
+        let Ok(mut guard) = state.0.lock() else {
+            return;
+        };
         if let Some(controls) = guard.as_mut() {
             let _ = controls.set_playback(MediaPlayback::Paused { progress: None });
         }
