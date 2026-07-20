@@ -15,10 +15,8 @@ tauri-build = { version = "2", features = [] }
 
 [dependencies]
 base64 = "0.22"
-core-foundation = "0.10.1"
 hickory-resolver = "0.24"
 keyring = { version = "3.6.3", default-features = false, features = ["apple-native", "windows-native", "sync-secret-service", "crypto-rust"] }
-objc = "0.2"
 open = "5.4"
 percent-encoding = "2.3"
 rand = "0.8"

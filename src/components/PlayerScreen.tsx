@@ -12,10 +12,16 @@ import {
   onMediaControl,
   updateMediaMetadata,
   updateMediaPlayback,
-  updatePlayerActive,
 } from '../api/media'
 import { formatTime, Playlist, thumbnailUrl, Track } from '../data/mockPlaylist'
 import type { Mixtape } from '../lib/library'
+import {
+  advanceIndex,
+  nextRepeatMode,
+  sequentialOrder,
+  shuffledOrder,
+  type RepeatMode,
+} from '../lib/playback'
 import { Brand } from './Brand'
 import { MixtapePicker } from './MixtapePicker'
 import { PlaybackBar } from './PlaybackBar'
@@ -39,13 +45,18 @@ export function PlayerScreen({
   onCreateMixtape,
 }: PlayerScreenProps) {
   const [currentIndex, setCurrentIndex] = useState(0)
-  const [playing, setPlaying] = useState(false)
+  // Loading a source is an explicit "play this" action, so start right away.
+  const [playing, setPlaying] = useState(!playlist.tracks[0].unavailable)
   const [elapsed, setElapsed] = useState(0)
   const [duration, setDuration] = useState(playlist.tracks[0].duration)
   const [volume, setVolume] = useState(70)
   const [failedVideoIds, setFailedVideoIds] = useState<Set<string>>(new Set())
   const [seekTo, setSeekTo] = useState<{ seconds: number; requestId: number } | null>(null)
   const [pickerTrack, setPickerTrack] = useState<Track | null>(null)
+  const [shuffle, setShuffle] = useState(false)
+  const [repeatMode, setRepeatMode] = useState<RepeatMode>('off')
+  const shuffleOrderRef = useRef<number[]>([])
+  const trackListRef = useRef<HTMLOListElement | null>(null)
 
   const track = playlist.tracks[currentIndex]
   const unavailable = Boolean(track.unavailable || failedVideoIds.has(track.id))
@@ -58,13 +69,34 @@ export function PlayerScreen({
     setPlaying(!nextTrack.unavailable)
   }, [playlist.tracks])
 
-  const moveTrack = useCallback(
-    (direction: number) => {
-      const count = playlist.tracks.length
-      selectTrack((currentIndex + direction + count) % count)
+  const isPlayable = useCallback(
+    (index: number) => {
+      const entry = playlist.tracks[index]
+      return Boolean(entry) && !entry.unavailable && !failedVideoIds.has(entry.id)
     },
-    [currentIndex, playlist.tracks.length, selectTrack],
+    [playlist.tracks, failedVideoIds],
   )
+
+  const moveTrack = useCallback(
+    (direction: 1 | -1, wrap = true) => {
+      const order = shuffle ? shuffleOrderRef.current : sequentialOrder(playlist.tracks.length)
+      const next = advanceIndex(order, currentIndex, direction, wrap, isPlayable)
+      if (next === null) {
+        setPlaying(false)
+        return
+      }
+      selectTrack(next)
+    },
+    [shuffle, playlist.tracks.length, currentIndex, isPlayable, selectTrack],
+  )
+
+  function handleEnded() {
+    if (repeatMode === 'one') {
+      handleSeek(0)
+      return
+    }
+    moveTrack(1, repeatMode === 'all')
+  }
 
   const handleUnavailable = useCallback(() => {
     setFailedVideoIds((current) => new Set(current).add(track.id))
@@ -105,26 +137,11 @@ export function PlayerScreen({
       case 'setVolume':
         setVolume(Math.min(Math.max(Math.round((event.value ?? 0) * 100), 0), 100))
         break
-      case 'volumeUp':
-        adjustVolume(6)
-        break
-      case 'volumeDown':
-        adjustVolume(-6)
-        break
-      case 'toggleMute':
-        toggleMute()
-        break
     }
   }
 
   const adjustVolume = (delta: number) =>
     setVolume((current) => Math.min(Math.max(current + delta, 0), 100))
-
-  const lastAudibleVolumeRef = useRef(volume > 0 ? volume : 70)
-  if (volume > 0) lastAudibleVolumeRef.current = volume
-
-  const toggleMute = () =>
-    setVolume((current) => (current === 0 ? lastAudibleVolumeRef.current : 0))
 
   // Latest-state handlers behind stable refs so the subscriptions below are
   // registered once instead of churning on every render.
@@ -148,12 +165,28 @@ export function PlayerScreen({
     }
   }, [playlist, selectTrack])
 
-  useEffect(() => onMediaControl((event) => mediaControlRef.current(event)), [])
-
+  // A fresh shuffle order whenever shuffle turns on or the playlist changes,
+  // keeping the current track as the starting point.
   useEffect(() => {
-    updatePlayerActive(true)
-    return () => updatePlayerActive(false)
-  }, [])
+    if (shuffle) {
+      shuffleOrderRef.current = shuffledOrder(playlist.tracks.length, currentIndexRef.current)
+    }
+  }, [shuffle, playlist])
+
+  // Keep the queue following the active song: center its row in the list.
+  // Scrolls only the list itself so the rest of the layout never jumps.
+  useEffect(() => {
+    const list = trackListRef.current
+    if (!list) return
+    const row = list.querySelector('[aria-current="true"]')?.closest('li')
+    if (!row) return
+    const listRect = list.getBoundingClientRect()
+    const rowRect = row.getBoundingClientRect()
+    const delta = rowRect.top - listRect.top - (list.clientHeight - rowRect.height) / 2
+    list.scrollTo({ top: list.scrollTop + delta, behavior: 'smooth' })
+  }, [currentIndex, playlist])
+
+  useEffect(() => onMediaControl((event) => mediaControlRef.current(event)), [])
 
   useEffect(() => {
     updateMediaMetadata({
@@ -218,7 +251,7 @@ export function PlayerScreen({
             <span>{playlist.tracks.length} tracks</span>
           </div>
 
-          <ol className="track-list" aria-label="Tracks">
+          <ol className="track-list" aria-label="Tracks" ref={trackListRef}>
             {playlist.tracks.map((item, index) => {
               const isCurrent = index === currentIndex
               const isUnavailable = Boolean(item.unavailable || failedVideoIds.has(item.id))
@@ -307,7 +340,7 @@ export function PlayerScreen({
                     setElapsed(nextElapsed)
                     if (nextDuration > 0) setDuration(nextDuration)
                   }}
-                  onEnded={() => moveTrack(1)}
+                  onEnded={handleEnded}
                   onUnavailable={handleUnavailable}
                 />
               )}
@@ -332,9 +365,13 @@ export function PlayerScreen({
         elapsed={elapsed}
         duration={duration}
         volume={volume}
+        shuffle={shuffle}
+        repeatMode={repeatMode}
         onPrevious={() => moveTrack(-1)}
         onToggle={() => !unavailable && setPlaying((current) => !current)}
         onNext={() => moveTrack(1)}
+        onToggleShuffle={() => setShuffle((current) => !current)}
+        onCycleRepeat={() => setRepeatMode(nextRepeatMode)}
         onSeek={handleSeek}
         onVolumeChange={setVolume}
       />

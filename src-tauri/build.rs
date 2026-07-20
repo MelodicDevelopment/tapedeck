@@ -41,7 +41,6 @@ fn main() {
             "media_set_playback",
             "load_library",
             "save_library",
-            "media_set_player_active",
         ]),
     ))
     .expect("failed to run tauri-build");

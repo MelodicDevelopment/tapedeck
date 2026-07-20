@@ -10,9 +10,6 @@ export type MediaControlAction =
   | 'seek'
   | 'seekBy'
   | 'setVolume'
-  | 'volumeUp'
-  | 'volumeDown'
-  | 'toggleMute'
 
 export type MediaControlEvent = {
   action: MediaControlAction
@@ -57,13 +54,4 @@ export function updateMediaPlayback(playing: boolean, positionSecs?: number) {
     playing,
     positionSecs: positionSecs ?? null,
   }).catch(() => {})
-}
-
-/**
- * Tell the desktop shell whether the player screen is open — hardware
- * volume keys are only intercepted while it is.
- */
-export function updatePlayerActive(active: boolean) {
-  if (!isTauri()) return
-  invoke('media_set_player_active', { active }).catch(() => {})
 }

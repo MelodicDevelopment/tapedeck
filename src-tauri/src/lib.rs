@@ -2,7 +2,6 @@ mod auth;
 mod dns;
 mod library;
 mod media;
-mod volume_keys;
 mod youtube;
 
 use tauri::{webview::WebviewWindowBuilder, Manager, WebviewUrl};
@@ -37,7 +36,6 @@ pub fn run() {
             media::media_set_playback,
             library::load_library,
             library::save_library,
-            volume_keys::media_set_player_active,
         ])
         .setup(|app| {
             #[cfg(debug_assertions)]
@@ -63,20 +61,31 @@ pub fn run() {
 
             media::init(app.handle(), &window)?;
 
-            let volume_state = volume_keys::VolumeKeysState::new();
-            app.manage(volume_state.clone());
-            let focus_state = volume_state.clone();
+            // Closing the window hides it so playback continues in the
+            // background (standard macOS music-app behavior); the dock
+            // icon brings it back and Cmd+Q still quits for real.
+            let close_target = window.clone();
             window.on_window_event(move |event| {
-                if let tauri::WindowEvent::Focused(focused) = event {
-                    focus_state
-                        .focused
-                        .store(*focused, std::sync::atomic::Ordering::Relaxed);
+                if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                    api.prevent_close();
+                    let _ = close_target.hide();
                 }
             });
-            volume_keys::init(app.handle(), volume_state);
 
             Ok(())
         })
-        .run(tauri::generate_context!())
-        .expect("error while running Tapedeck");
+        .build(tauri::generate_context!())
+        .expect("error while running Tapedeck")
+        .run(|app, event| {
+            // Clicking the dock icon re-shows the hidden window.
+            #[cfg(target_os = "macos")]
+            if let tauri::RunEvent::Reopen { .. } = event {
+                if let Some(window) = app.get_webview_window("main") {
+                    let _ = window.show();
+                    let _ = window.unminimize();
+                    let _ = window.set_focus();
+                }
+            }
+            let _ = (&app, &event);
+        });
 }

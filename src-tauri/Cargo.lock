@@ -4052,10 +4052,8 @@ name = "tapedeck"
 version = "0.2.0"
 dependencies = [
  "base64 0.22.1",
- "core-foundation 0.10.1",
  "hickory-resolver",
  "keyring",
- "objc",
  "open",
  "percent-encoding",
  "rand 0.8.7",

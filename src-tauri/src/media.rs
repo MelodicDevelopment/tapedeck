@@ -93,8 +93,31 @@ pub fn init(app: &AppHandle, window: &WebviewWindow) -> Result<(), Box<dyn std::
         })
         .map_err(|error| format!("media controls attach: {error}"))?;
 
+    // Claim the OS media-key routing immediately: macOS only routes the play
+    // key to an app that has reported a playing state at least once — until
+    // then the key launches Apple Music. Report "playing" briefly, then
+    // settle to paused; Tapedeck stays the now-playing target either way.
+    let _ = controls.set_metadata(MediaMetadata {
+        title: Some("Tapedeck"),
+        artist: Some("Ready to play"),
+        album: None,
+        cover_url: None,
+        duration: None,
+    });
+    let _ = controls.set_playback(MediaPlayback::Playing { progress: None });
+
     let state: State<MediaState> = tauri::Manager::state(app);
     *state.0.lock().expect("media controls lock") = Some(controls);
+
+    let handle = app.clone();
+    std::thread::spawn(move || {
+        std::thread::sleep(std::time::Duration::from_millis(500));
+        let state = tauri::Manager::state::<MediaState>(&handle);
+        let Ok(mut guard) = state.0.lock() else { return };
+        if let Some(controls) = guard.as_mut() {
+            let _ = controls.set_playback(MediaPlayback::Paused { progress: None });
+        }
+    });
     Ok(())
 }
 

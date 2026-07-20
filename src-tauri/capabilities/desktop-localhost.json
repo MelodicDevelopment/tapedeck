@@ -15,7 +15,6 @@
     "allow-media-set-metadata",
     "allow-media-set-playback",
     "allow-load-library",
-    "allow-save-library",
-    "allow-media-set-player-active"
+    "allow-save-library"
   ]
 }

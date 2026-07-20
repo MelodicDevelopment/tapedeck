@@ -28,6 +28,8 @@ export function YouTubePlayer({
   const readyRef = useRef(false)
   const callbacksRef = useRef({ onPlayingChange, onProgress, onEnded, onUnavailable })
   callbacksRef.current = { onPlayingChange, onProgress, onEnded, onUnavailable }
+  const playingRef = useRef(playing)
+  playingRef.current = playing
 
   useEffect(() => {
     let disposed = false
@@ -118,6 +120,8 @@ export function YouTubePlayer({
   useEffect(() => {
     if (seekTo && readyRef.current) {
       playerRef.current?.seekTo(seekTo.seconds, true)
+      // Seeking an ended video (repeat-one) must resume playback.
+      if (playingRef.current) playerRef.current?.playVideo()
     }
   }, [seekTo])
 

@@ -1,5 +1,5 @@
 import { AlertCircle, CassetteTape, History, LoaderCircle, LogOut, ShieldCheck, X } from 'lucide-react'
-import { FormEvent } from 'react'
+import { FormEvent, useEffect, useState } from 'react'
 import type { AuthStatus } from '../api/auth'
 import { thumbnailUrl } from '../data/mockPlaylist'
 import type { Mixtape, SavedSource } from '../lib/library'
@@ -46,6 +46,10 @@ export function WelcomeScreen({
   onSignOut,
   onOpenDemo,
 }: WelcomeScreenProps) {
+  const picture = authStatus?.user?.picture
+  const [avatarFailed, setAvatarFailed] = useState(false)
+  useEffect(() => setAvatarFailed(false), [picture])
+
   function handleSubmit(event: FormEvent) {
     event.preventDefault()
     onSubmit()
@@ -61,8 +65,13 @@ export function WelcomeScreen({
         <Brand />
         {desktop && authStatus?.authenticated && authStatus.user && (
           <div className="account-summary">
-            {authStatus.user.picture ? (
-              <img src={authStatus.user.picture} alt="" referrerPolicy="no-referrer" />
+            {picture && !avatarFailed ? (
+              <img
+                src={picture}
+                alt=""
+                referrerPolicy="no-referrer"
+                onError={() => setAvatarFailed(true)}
+              />
             ) : (
               <span className="account-summary__avatar" aria-hidden="true">
                 {authStatus.user.name.slice(0, 1).toUpperCase()}

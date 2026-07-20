@@ -1,6 +1,9 @@
 import {
   Pause,
   Play,
+  Repeat,
+  Repeat1,
+  Shuffle,
   SkipBack,
   SkipForward,
   Volume1,
@@ -9,6 +12,7 @@ import {
 } from 'lucide-react'
 import { CSSProperties } from 'react'
 import { formatTime, thumbnailUrl, Track } from '../data/mockPlaylist'
+import type { RepeatMode } from '../lib/playback'
 
 type PlaybackBarProps = {
   track: Track
@@ -17,11 +21,21 @@ type PlaybackBarProps = {
   elapsed: number
   duration: number
   volume: number
+  shuffle: boolean
+  repeatMode: RepeatMode
   onPrevious: () => void
   onToggle: () => void
   onNext: () => void
+  onToggleShuffle: () => void
+  onCycleRepeat: () => void
   onSeek: (seconds: number) => void
   onVolumeChange: (volume: number) => void
+}
+
+const REPEAT_LABELS: Record<RepeatMode, string> = {
+  off: 'Repeat the whole playlist',
+  all: 'Repeat the current song',
+  one: 'Turn repeat off',
 }
 
 export function PlaybackBar({
@@ -31,9 +45,13 @@ export function PlaybackBar({
   elapsed,
   duration,
   volume,
+  shuffle,
+  repeatMode,
   onPrevious,
   onToggle,
   onNext,
+  onToggleShuffle,
+  onCycleRepeat,
   onSeek,
   onVolumeChange,
 }: PlaybackBarProps) {
@@ -58,6 +76,15 @@ export function PlaybackBar({
 
       <div className="playback-center">
         <div className="transport-controls">
+          <button
+            className={`icon-button icon-button--mode${shuffle ? ' icon-button--on' : ''}`}
+            onClick={onToggleShuffle}
+            aria-label={shuffle ? 'Turn shuffle off' : 'Turn shuffle on'}
+            aria-pressed={shuffle}
+            title="Shuffle"
+          >
+            <Shuffle aria-hidden="true" />
+          </button>
           <button className="icon-button" onClick={onPrevious} aria-label="Previous track">
             <SkipBack aria-hidden="true" />
           </button>
@@ -71,6 +98,14 @@ export function PlaybackBar({
           </button>
           <button className="icon-button" onClick={onNext} aria-label="Next track">
             <SkipForward aria-hidden="true" />
+          </button>
+          <button
+            className={`icon-button icon-button--mode${repeatMode !== 'off' ? ' icon-button--on' : ''}`}
+            onClick={onCycleRepeat}
+            aria-label={REPEAT_LABELS[repeatMode]}
+            title={repeatMode === 'one' ? 'Repeating this song' : repeatMode === 'all' ? 'Repeating playlist' : 'Repeat'}
+          >
+            {repeatMode === 'one' ? <Repeat1 aria-hidden="true" /> : <Repeat aria-hidden="true" />}
           </button>
         </div>
 
