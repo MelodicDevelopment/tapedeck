@@ -35,8 +35,9 @@ Requirements:
 
 ```sh
 cp .env.example .env
-# Add TAPEDECK_GOOGLE_CLIENT_ID to .env. A desktop client ID is public;
-# do not create or add a client secret.
+# Add TAPEDECK_GOOGLE_CLIENT_ID and TAPEDECK_GOOGLE_CLIENT_SECRET to .env.
+# Google requires the Desktop-app client secret at the token endpoint even
+# with PKCE, and treats installed-app secrets as non-confidential.
 
 npm install
 npm run desktop
@@ -49,19 +50,19 @@ npm run desktop
 1. Enable **YouTube Data API v3** in the Google Cloud project.
 2. Configure the OAuth consent screen. During development, add intended accounts as test users.
 3. Create **Credentials → OAuth client ID → Desktop app**.
-4. Copy the resulting client ID (ending in `.apps.googleusercontent.com`) into `.env` as `TAPEDECK_GOOGLE_CLIENT_ID`.
+4. Copy the resulting client ID (ending in `.apps.googleusercontent.com`) into `.env` as `TAPEDECK_GOOGLE_CLIENT_ID`, and the client secret as `TAPEDECK_GOOGLE_CLIENT_SECRET`.
 
 Tapedeck requests `youtube.readonly`, `openid`, `email`, and `profile`. A public release may require completing Google's OAuth app verification and publishing requirements for the YouTube read-only scope.
 
 ## Package the desktop app
 
-A distributable desktop build embeds the public Desktop OAuth client ID from `.env`:
+A distributable desktop build embeds the Desktop OAuth client ID and secret from `.env`:
 
 ```sh
 npm run desktop:build
 ```
 
-No Google client secret, YouTube API key, or Tapedeck API endpoint is included in or required by the desktop package.
+No YouTube API key or Tapedeck API endpoint is included in or required by the desktop package. The embedded Desktop OAuth credentials are the kind Google designates non-confidential for installed apps; keep `.env` and the downloaded client JSON out of source control regardless.
 
 The macOS outputs are written under:
 

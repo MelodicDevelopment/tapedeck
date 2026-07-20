@@ -105,7 +105,7 @@ export function WelcomeScreen({
                     <span>
                       {authStatus?.configured
                         ? 'Sign in securely in your browser. Tapedeck requests read-only YouTube access.'
-                        : 'This development build is missing TAPEDECK_GOOGLE_CLIENT_ID. The demo still works.'}
+                        : 'This development build is missing its Google OAuth client credentials in .env. The demo still works.'}
                     </span>
                   </div>
                 </div>

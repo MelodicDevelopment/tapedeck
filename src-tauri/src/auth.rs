@@ -128,11 +128,32 @@ impl AppState {
     }
 }
 
-fn google_client_id() -> Option<String> {
-    std::env::var("TAPEDECK_GOOGLE_CLIENT_ID")
+fn google_env(runtime_key: &str, build_value: Option<&'static str>) -> Option<String> {
+    std::env::var(runtime_key)
         .ok()
         .filter(|value| !value.trim().is_empty())
-        .or_else(|| option_env!("TAPEDECK_GOOGLE_CLIENT_ID").map(str::to_owned))
+        .or_else(|| build_value.map(str::to_owned))
+}
+
+fn google_client_id() -> Option<String> {
+    google_env(
+        "TAPEDECK_GOOGLE_CLIENT_ID",
+        option_env!("TAPEDECK_GOOGLE_CLIENT_ID"),
+    )
+}
+
+// Google's token endpoint rejects "Desktop app" clients without their client
+// secret even in the PKCE flow; Google documents that installed-app secrets
+// are not confidential, so it ships in the binary alongside the client ID.
+fn google_client_secret() -> Option<String> {
+    google_env(
+        "TAPEDECK_GOOGLE_CLIENT_SECRET",
+        option_env!("TAPEDECK_GOOGLE_CLIENT_SECRET"),
+    )
+}
+
+fn google_client() -> Option<(String, String)> {
+    Some((google_client_id()?, google_client_secret()?))
 }
 
 fn credential_entry() -> Result<Entry, CommandError> {
@@ -252,16 +273,17 @@ async fn refresh_session(
     state: &AppState,
     refresh_token: &str,
 ) -> Result<AccessSession, CommandError> {
-    let client_id = google_client_id().ok_or_else(|| {
+    let (client_id, client_secret) = google_client().ok_or_else(|| {
         CommandError::new(
             "GOOGLE_CLIENT_NOT_CONFIGURED",
-            "This build is missing its Google Desktop OAuth client ID.",
+            "This build is missing its Google Desktop OAuth client credentials.",
         )
     })?;
     let token = token_request(
         &state.client,
         &[
             ("client_id", client_id.as_str()),
+            ("client_secret", client_secret.as_str()),
             ("refresh_token", refresh_token),
             ("grant_type", "refresh_token"),
         ],
@@ -291,7 +313,7 @@ pub async fn access_token(state: &AppState) -> Result<String, CommandError> {
 
 #[tauri::command]
 pub async fn google_auth_status(state: State<'_, AppState>) -> Result<AuthStatus, CommandError> {
-    if google_client_id().is_none() {
+    if google_client().is_none() {
         return Ok(AuthStatus {
             configured: false,
             authenticated: false,
@@ -440,10 +462,10 @@ fn callback_response(
 
 #[tauri::command]
 pub async fn sign_in_with_google(state: State<'_, AppState>) -> Result<AuthStatus, CommandError> {
-    let client_id = google_client_id().ok_or_else(|| {
+    let (client_id, client_secret) = google_client().ok_or_else(|| {
         CommandError::new(
             "GOOGLE_CLIENT_NOT_CONFIGURED",
-            "This build is missing its Google Desktop OAuth client ID.",
+            "This build is missing its Google Desktop OAuth client credentials.",
         )
     })?;
     let listener = TcpListener::bind(("127.0.0.1", 0)).map_err(|_| {
@@ -500,6 +522,7 @@ pub async fn sign_in_with_google(state: State<'_, AppState>) -> Result<AuthStatu
         &state.client,
         &[
             ("client_id", client_id.as_str()),
+            ("client_secret", client_secret.as_str()),
             ("code", code.as_str()),
             ("code_verifier", verifier.as_str()),
             ("grant_type", "authorization_code"),
@@ -544,7 +567,7 @@ pub async fn sign_out_google(state: State<'_, AppState>) -> Result<AuthStatus, C
     }
 
     Ok(AuthStatus {
-        configured: google_client_id().is_some(),
+        configured: google_client().is_some(),
         authenticated: false,
         user: None,
     })
