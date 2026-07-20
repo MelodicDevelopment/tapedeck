@@ -1,4 +1,8 @@
 mod auth;
+mod dns;
+mod library;
+mod media;
+mod volume_keys;
 mod youtube;
 
 use tauri::{webview::WebviewWindowBuilder, Manager, WebviewUrl};
@@ -23,11 +27,17 @@ pub fn run() {
 
     builder
         .manage(auth::AppState::new())
+        .manage(media::MediaState::new())
         .invoke_handler(tauri::generate_handler![
             auth::google_auth_status,
             auth::sign_in_with_google,
             auth::sign_out_google,
             youtube::resolve_youtube_source,
+            media::media_set_metadata,
+            media::media_set_playback,
+            library::load_library,
+            library::save_library,
+            volume_keys::media_set_player_active,
         ])
         .setup(|app| {
             #[cfg(debug_assertions)]
@@ -44,12 +54,26 @@ pub fn run() {
                     .expect("valid Tapedeck desktop URL"),
             );
 
-            WebviewWindowBuilder::new(app, "main", url)
+            let window = WebviewWindowBuilder::new(app, "main", url)
                 .title("Tapedeck")
                 .inner_size(1280.0, 800.0)
                 .min_inner_size(720.0, 640.0)
                 .center()
                 .build()?;
+
+            media::init(app.handle(), &window)?;
+
+            let volume_state = volume_keys::VolumeKeysState::new();
+            app.manage(volume_state.clone());
+            let focus_state = volume_state.clone();
+            window.on_window_event(move |event| {
+                if let tauri::WindowEvent::Focused(focused) = event {
+                    focus_state
+                        .focused
+                        .store(*focused, std::sync::atomic::Ordering::Relaxed);
+                }
+            });
+            volume_keys::init(app.handle(), volume_state);
 
             Ok(())
         })

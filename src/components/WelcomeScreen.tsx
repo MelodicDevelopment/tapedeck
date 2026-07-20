@@ -1,6 +1,8 @@
-import { AlertCircle, LoaderCircle, LogOut, ShieldCheck } from 'lucide-react'
+import { AlertCircle, CassetteTape, History, LoaderCircle, LogOut, ShieldCheck, X } from 'lucide-react'
 import { FormEvent } from 'react'
 import type { AuthStatus } from '../api/auth'
+import { thumbnailUrl } from '../data/mockPlaylist'
+import type { Mixtape, SavedSource } from '../lib/library'
 import { Brand } from './Brand'
 
 type WelcomeScreenProps = {
@@ -10,14 +12,20 @@ type WelcomeScreenProps = {
   desktop: boolean
   authStatus: AuthStatus | null
   authAction: 'sign-in' | 'sign-out' | null
+  sources: SavedSource[]
+  mixtapes: Mixtape[]
   onUrlChange: (value: string) => void
   onSubmit: () => void
+  onOpenSource: (url: string) => void
+  onRemoveSource: (url: string) => void
+  onPlayMixtape: (id: string) => void
+  onDeleteMixtape: (id: string) => void
   onSignIn: () => void
   onSignOut: () => void
   onOpenDemo: () => void
 }
 
-const EXAMPLE_URL = 'https://www.youtube.com/@lofihiphopmusic'
+const EXAMPLE_URL = 'https://www.youtube.com/@LofiGirl'
 
 export function WelcomeScreen({
   url,
@@ -26,8 +34,14 @@ export function WelcomeScreen({
   desktop,
   authStatus,
   authAction,
+  sources,
+  mixtapes,
   onUrlChange,
   onSubmit,
+  onOpenSource,
+  onRemoveSource,
+  onPlayMixtape,
+  onDeleteMixtape,
   onSignIn,
   onSignOut,
   onOpenDemo,
@@ -73,6 +87,7 @@ export function WelcomeScreen({
       </header>
 
       <section className="welcome-content" aria-live="polite">
+        <div className="welcome-stack">
         {checkingAuth ? (
           <div className="loading-state" role="status">
             <LoaderCircle className="loading-state__spinner" aria-hidden="true" />
@@ -86,6 +101,7 @@ export function WelcomeScreen({
             <p>Reading the playlist and video titles. This usually takes a moment.</p>
           </div>
         ) : (
+          <>
           <div className="welcome-card">
             <p className="eyebrow">YOUR MUSIC, LESS NOISE</p>
             <h1>Play the channels you love</h1>
@@ -159,7 +175,7 @@ export function WelcomeScreen({
                   <p className="source-form__helper">
                     Try{' '}
                     <button type="button" onClick={() => onUrlChange(EXAMPLE_URL)}>
-                      youtube.com/@lofihiphopmusic
+                      youtube.com/@LofiGirl
                     </button>
                   </p>
                   <span aria-hidden="true">or</span>
@@ -170,7 +186,100 @@ export function WelcomeScreen({
               )}
             </form>
           </div>
+
+          {(mixtapes.length > 0 || sources.length > 0) && (
+            <section className="library" aria-label="Your library">
+              {mixtapes.length > 0 && (
+                <div className="library__group">
+                  <h2 className="library__heading">
+                    <CassetteTape aria-hidden="true" /> Your mixtapes
+                  </h2>
+                  <ul className="library__list">
+                    {mixtapes.map((mixtape) => {
+                      const cover = mixtape.tracks.find((track) => !track.unavailable)
+                      const count = mixtape.tracks.length
+                      return (
+                        <li key={mixtape.id} className="library-card">
+                          <button
+                            type="button"
+                            className="library-card__main"
+                            onClick={() => onPlayMixtape(mixtape.id)}
+                            disabled={count === 0}
+                          >
+                            {cover ? (
+                              <img src={thumbnailUrl(cover.id)} alt="" loading="lazy" />
+                            ) : (
+                              <span className="library-card__placeholder" aria-hidden="true">
+                                <CassetteTape />
+                              </span>
+                            )}
+                            <span className="library-card__copy">
+                              <strong>{mixtape.name}</strong>
+                              <span>{count} {count === 1 ? 'video' : 'videos'} · Mixtape</span>
+                            </span>
+                          </button>
+                          <button
+                            type="button"
+                            className="library-card__remove"
+                            onClick={() => onDeleteMixtape(mixtape.id)}
+                            aria-label={`Delete mixtape ${mixtape.name}`}
+                            title="Delete mixtape"
+                          >
+                            <X aria-hidden="true" />
+                          </button>
+                        </li>
+                      )
+                    })}
+                  </ul>
+                </div>
+              )}
+
+              {sources.length > 0 && (
+                <div className="library__group">
+                  <h2 className="library__heading">
+                    <History aria-hidden="true" /> Saved channels &amp; playlists
+                  </h2>
+                  <ul className="library__list">
+                    {sources.map((source) => (
+                      <li key={source.url} className="library-card">
+                        <button
+                          type="button"
+                          className="library-card__main"
+                          onClick={() => onOpenSource(source.url)}
+                          disabled={needsSignIn || authAction !== null}
+                          title={source.url}
+                        >
+                          {source.thumbnail ? (
+                            <img src={source.thumbnail} alt="" loading="lazy" referrerPolicy="no-referrer" />
+                          ) : (
+                            <span className="library-card__placeholder" aria-hidden="true">
+                              <History />
+                            </span>
+                          )}
+                          <span className="library-card__copy">
+                            <strong>{source.name}</strong>
+                            <span>{source.kind}</span>
+                          </span>
+                        </button>
+                        <button
+                          type="button"
+                          className="library-card__remove"
+                          onClick={() => onRemoveSource(source.url)}
+                          aria-label={`Remove ${source.name} from saved sources`}
+                          title="Remove from saved"
+                        >
+                          <X aria-hidden="true" />
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </section>
+          )}
+          </>
         )}
+        </div>
       </section>
 
       <footer className="welcome-footer">

@@ -15,7 +15,10 @@ tauri-build = { version = "2", features = [] }
 
 [dependencies]
 base64 = "0.22"
+core-foundation = "0.10.1"
+hickory-resolver = "0.24"
 keyring = { version = "3.6.3", default-features = false, features = ["apple-native", "windows-native", "sync-secret-service", "crypto-rust"] }
+objc = "0.2"
 open = "5.4"
 percent-encoding = "2.3"
 rand = "0.8"
@@ -23,9 +26,11 @@ reqwest = { version = "0.12.24", default-features = false, features = ["json", "
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 sha2 = "0.10"
+souvlaki = "0.8.3"
 tauri = { version = "2", features = [] }
 tauri-plugin-localhost = "2"
 tauri-plugin-single-instance = "2"
+tokio = { version = "1.53.0", features = ["time"] }
 url = "2"
 
 [profile.release]

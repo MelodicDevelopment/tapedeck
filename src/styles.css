@@ -212,9 +212,21 @@ input:disabled {
 }
 
 .welcome-content {
-  display: grid;
+  display: flex;
+  min-height: 0;
   padding: 28px 24px;
-  place-items: center;
+  overflow-y: auto;
+}
+
+/* Centers like the old grid when content is short, scrolls when the
+   library below the card makes it tall. */
+.welcome-stack {
+  display: flex;
+  width: min(100%, 540px);
+  align-items: center;
+  flex-direction: column;
+  gap: 34px;
+  margin: auto;
 }
 
 .welcome-card,
@@ -1322,4 +1334,368 @@ input:disabled {
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
   }
+}
+
+/* --- Library (welcome screen) --- */
+
+.library {
+  display: flex;
+  width: 100%;
+  flex-direction: column;
+  gap: 26px;
+}
+
+.library__group {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.library__heading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  color: var(--faint);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-align: left;
+  text-transform: uppercase;
+}
+
+.library__heading svg {
+  width: 14px;
+  height: 14px;
+}
+
+.library__list {
+  display: flex;
+  margin: 0;
+  padding: 0;
+  flex-direction: column;
+  gap: 8px;
+  list-style: none;
+}
+
+.library-card {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px;
+  border: 1px solid var(--border);
+  border-radius: 13px;
+  background: rgb(33 30 26 / 72%);
+  transition: border-color 150ms ease, background-color 150ms ease;
+}
+
+.library-card:hover {
+  border-color: var(--border-strong);
+  background: var(--well);
+}
+
+.library-card__main {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  align-items: center;
+  gap: 12px;
+  padding: 6px;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+}
+
+.library-card__main img,
+.library-card__placeholder {
+  width: 44px;
+  height: 44px;
+  flex: 0 0 auto;
+  border: 1px solid rgb(255 255 255 / 7%);
+  border-radius: 9px;
+  object-fit: cover;
+}
+
+.library-card__placeholder {
+  display: grid;
+  place-items: center;
+  color: var(--faint);
+  background: var(--raised);
+}
+
+.library-card__placeholder svg {
+  width: 18px;
+  height: 18px;
+}
+
+.library-card__copy {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.library-card__copy strong,
+.library-card__copy span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.library-card__copy strong {
+  font-size: 14px;
+  font-weight: 650;
+}
+
+.library-card__copy span {
+  color: var(--muted);
+  font-size: 11.5px;
+}
+
+.library-card__remove {
+  display: grid;
+  width: 30px;
+  height: 30px;
+  flex: 0 0 auto;
+  place-items: center;
+  margin-right: 4px;
+  border: 0;
+  border-radius: 8px;
+  color: var(--faint);
+  background: transparent;
+  cursor: pointer;
+}
+
+.library-card__remove:hover {
+  color: #e8998c;
+  background: var(--raised);
+}
+
+.library-card__remove svg {
+  width: 14px;
+  height: 14px;
+}
+
+/* --- Track list mixtape actions (player queue) --- */
+
+.track-item {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.track-item .track-row {
+  min-width: 0;
+  flex: 1;
+}
+
+.track-item__action {
+  display: grid;
+  width: 28px;
+  height: 28px;
+  flex: 0 0 auto;
+  place-items: center;
+  border: 0;
+  border-radius: 7px;
+  color: var(--faint);
+  background: transparent;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 120ms ease, background-color 120ms ease, color 120ms ease;
+}
+
+.track-item:hover .track-item__action,
+.track-item:focus-within .track-item__action {
+  opacity: 1;
+}
+
+.track-item__action:hover {
+  color: var(--text);
+  background: var(--raised);
+}
+
+.track-item__action svg {
+  width: 15px;
+  height: 15px;
+}
+
+/* --- Mixtape picker modal --- */
+
+.modal-backdrop {
+  position: fixed;
+  z-index: 40;
+  display: grid;
+  inset: 0;
+  padding: 24px;
+  place-items: center;
+  background: rgb(10 9 7 / 62%);
+  backdrop-filter: blur(3px);
+}
+
+.modal {
+  display: flex;
+  width: min(100%, 420px);
+  max-height: min(72vh, 560px);
+  flex-direction: column;
+  gap: 14px;
+  padding: 18px;
+  border: 1px solid var(--border-strong);
+  border-radius: 15px;
+  background: var(--panel);
+  box-shadow: 0 24px 60px rgb(0 0 0 / 45%);
+}
+
+.modal__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.modal__title {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 3px;
+  text-align: left;
+}
+
+.modal__title strong {
+  font-size: 15px;
+  font-weight: 650;
+}
+
+.modal__title span {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.modal__close {
+  display: grid;
+  width: 30px;
+  height: 30px;
+  flex: 0 0 auto;
+  place-items: center;
+  border: 0;
+  border-radius: 8px;
+  color: var(--muted);
+  background: transparent;
+  cursor: pointer;
+}
+
+.modal__close:hover {
+  color: var(--text);
+  background: var(--raised);
+}
+
+.modal__close svg {
+  width: 15px;
+  height: 15px;
+}
+
+.mixtape-options {
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+}
+
+.mixtape-option {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 11px;
+  margin: 1px 0;
+  padding: 9px 10px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+}
+
+.mixtape-option:hover {
+  background: #242119;
+}
+
+.mixtape-option--added {
+  border-color: rgb(139 127 240 / 14%);
+  background: var(--raised);
+}
+
+.mixtape-option > svg {
+  width: 17px;
+  height: 17px;
+  flex: 0 0 auto;
+  color: var(--muted);
+}
+
+.mixtape-option__copy {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.mixtape-option__copy strong,
+.mixtape-option__copy span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mixtape-option__copy strong {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.mixtape-option__copy span {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.mixtape-option__check {
+  width: 15px;
+  height: 15px;
+  flex: 0 0 auto;
+  color: #aaa1f5;
+}
+
+.mixtape-options__empty {
+  margin: 0;
+  padding: 4px 2px;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.5;
+  text-align: left;
+}
+
+.mixtape-create {
+  display: flex;
+  gap: 8px;
+}
+
+.mixtape-create .input {
+  height: 42px;
+}
+
+.mixtape-create .button--primary {
+  height: 42px;
+  min-height: 42px;
+  padding: 0 15px;
+  font-size: 13px;
+}
+
+.mixtape-create .button--primary svg {
+  width: 14px;
+  height: 14px;
+  margin-right: 5px;
 }

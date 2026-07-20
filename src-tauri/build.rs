@@ -37,6 +37,11 @@ fn main() {
             "sign_in_with_google",
             "sign_out_google",
             "resolve_youtube_source",
+            "media_set_metadata",
+            "media_set_playback",
+            "load_library",
+            "save_library",
+            "media_set_player_active",
         ]),
     ))
     .expect("failed to run tauri-build");

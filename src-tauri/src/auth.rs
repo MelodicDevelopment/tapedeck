@@ -98,8 +98,16 @@ struct UserInfoResponse {
 impl AppState {
     pub fn new() -> Self {
         Self {
+            // Resilience against this machine's flaky resolver and security
+            // filters: in-process DNS with public-server fallback and TTL
+            // caching, fast connect failure so retries get a fresh chance,
+            // keepalive on approved connections, no reuse of long-idle ones.
             client: Client::builder()
                 .timeout(Duration::from_secs(15))
+                .connect_timeout(Duration::from_secs(5))
+                .tcp_keepalive(Duration::from_secs(30))
+                .pool_idle_timeout(Duration::from_secs(20))
+                .dns_resolver(crate::dns::TapedeckResolver::new())
                 .build()
                 .expect("Tapedeck HTTP client"),
             session: Mutex::new(None),
@@ -196,16 +204,60 @@ fn delete_refresh_token() -> Result<(), CommandError> {
     }
 }
 
+/// Compact human-readable cause for a transport failure, shown in error
+/// messages so intermittent failures are diagnosable from a screenshot.
+pub fn transport_detail(error: &reqwest::Error) -> String {
+    let kind = if error.is_timeout() {
+        "timed out"
+    } else if error.is_connect() {
+        "connection failed"
+    } else {
+        "request failed"
+    };
+    let mut deepest: &dyn std::error::Error = error;
+    while let Some(source) = deepest.source() {
+        deepest = source;
+    }
+    let cause = deepest.to_string();
+    if cause.is_empty() || cause == error.to_string() {
+        kind.to_owned()
+    } else {
+        format!("{kind}: {cause}")
+    }
+}
+
+/// Send with up to two retries on transport-level failures (connect errors,
+/// timeouts, stale pooled connections). Google token/userinfo requests are
+/// safe to repeat: a consumed authorization code surfaces as `invalid_grant`,
+/// which the callers already handle.
+pub async fn send_with_retry(
+    builder: reqwest::RequestBuilder,
+) -> Result<reqwest::Response, reqwest::Error> {
+    let mut attempt = 0;
+    loop {
+        let request = builder.try_clone().expect("retryable Google request");
+        match request.send().await {
+            Ok(response) => return Ok(response),
+            Err(error) if attempt < 2 && !error.is_builder() => {
+                attempt += 1;
+                // Spaced widely enough to outlive transient DNS/route flaps.
+                tokio::time::sleep(Duration::from_millis(700 * attempt * attempt)).await;
+            }
+            Err(error) => return Err(error),
+        }
+    }
+}
+
 async fn fetch_user(client: &Client, access_token: &str) -> Result<GoogleUser, CommandError> {
-    let response = client
-        .get(USERINFO_ENDPOINT)
-        .bearer_auth(access_token)
-        .send()
+    let response = send_with_retry(client.get(USERINFO_ENDPOINT).bearer_auth(access_token))
         .await
-        .map_err(|_| {
+        .map_err(|error| {
             CommandError::new(
                 "GOOGLE_UNREACHABLE",
-                "Google could not be reached. Check your connection and try again.",
+                format!(
+                    "Google could not be reached ({}). Check your connection and try again.",
+                    transport_detail(&error)
+                ),
             )
         })?;
 
@@ -236,15 +288,15 @@ async fn token_request(
     client: &Client,
     fields: &[(&str, &str)],
 ) -> Result<TokenResponse, CommandError> {
-    let response = client
-        .post(TOKEN_ENDPOINT)
-        .form(fields)
-        .send()
+    let response = send_with_retry(client.post(TOKEN_ENDPOINT).form(fields))
         .await
-        .map_err(|_| {
+        .map_err(|error| {
             CommandError::new(
                 "GOOGLE_UNREACHABLE",
-                "Google could not be reached. Check your connection and try again.",
+                format!(
+                    "Google could not be reached ({}). Check your connection and try again.",
+                    transport_detail(&error)
+                ),
             )
         })?;
 
@@ -559,7 +611,19 @@ pub async fn sign_in_with_google(state: State<'_, AppState>) -> Result<AuthStatu
         )
     })?;
     store_refresh_token(&refresh_token)?;
-    let user = fetch_user(&state.client, &token.access_token).await?;
+    // The sign-in is durable from here on — the refresh token is stored. A
+    // failing profile fetch must not surface as a failed sign-in; the next
+    // status check refreshes the session and fills the profile in.
+    let user = match fetch_user(&state.client, &token.access_token).await {
+        Ok(user) => user,
+        Err(_) => {
+            return Ok(AuthStatus {
+                configured: true,
+                authenticated: true,
+                user: None,
+            })
+        }
+    };
     state.set_session(Some(AccessSession {
         access_token: token.access_token,
         expires_at: Instant::now() + Duration::from_secs(token.expires_in.unwrap_or(3600)),

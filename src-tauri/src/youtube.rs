@@ -7,7 +7,7 @@ use serde_json::Value;
 use tauri::State;
 use url::Url;
 
-use crate::auth::{access_token, AppState, CommandError};
+use crate::auth::{access_token, send_with_retry, transport_detail, AppState, CommandError};
 
 const API_ROOT: &str = "https://www.googleapis.com/youtube/v3";
 const MAX_TRACKS: usize = 150;
@@ -212,19 +212,23 @@ async fn youtube_get(
     params: Vec<(&str, String)>,
     token: &str,
 ) -> Result<Value, CommandError> {
-    let response = state
-        .client
-        .get(format!("{API_ROOT}/{resource}"))
-        .bearer_auth(token)
-        .query(&params)
-        .send()
-        .await
-        .map_err(|_| {
-            CommandError::new(
-                "YOUTUBE_UNREACHABLE",
-                "YouTube could not be reached. Check your connection and try again.",
-            )
-        })?;
+    let response = send_with_retry(
+        state
+            .client
+            .get(format!("{API_ROOT}/{resource}"))
+            .bearer_auth(token)
+            .query(&params),
+    )
+    .await
+    .map_err(|error| {
+        CommandError::new(
+            "YOUTUBE_UNREACHABLE",
+            format!(
+                "YouTube could not be reached ({}). Check your connection and try again.",
+                transport_detail(&error)
+            ),
+        )
+    })?;
     let status = response.status();
     let body = response.json::<Value>().await.map_err(|_| {
         CommandError::new(
@@ -361,7 +365,13 @@ async fn load_playlist_items(
         if !page_token.is_empty() {
             params.push(("pageToken", page_token.clone()));
         }
-        let response = youtube_get(state, "playlistItems", params, token).await?;
+        // Channels without any uploaded videos 404 on their uploads playlist;
+        // report that as an empty source instead of "not found".
+        let response = match youtube_get(state, "playlistItems", params, token).await {
+            Ok(response) => response,
+            Err(error) if error.code == "SOURCE_NOT_FOUND" && items.is_empty() => break,
+            Err(error) => return Err(error),
+        };
         if let Some(next_items) = response.get("items").and_then(Value::as_array) {
             items.extend(next_items.iter().cloned());
         }
