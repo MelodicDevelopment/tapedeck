@@ -254,6 +254,100 @@
 				line-height: 1.6;
 			}
 
+			.permissions {
+				padding-bottom: 56px;
+			}
+
+			.permissions h2 {
+				margin: 0 0 8px;
+				font-size: 20px;
+				font-weight: 650;
+				letter-spacing: -0.02em;
+				text-align: center;
+			}
+
+			.permissions__intro {
+				max-width: 560px;
+				margin: 0 auto 24px;
+				color: var(--muted);
+				font-size: 14px;
+				line-height: 1.6;
+				text-align: center;
+				text-wrap: balance;
+			}
+
+			.permissions__grid {
+				display: grid;
+				grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+				gap: 16px;
+			}
+
+			.permissions__col {
+				padding: 20px;
+				border: 1px solid var(--border);
+				border-radius: 14px;
+				background: var(--panel);
+			}
+
+			.permissions__col h3 {
+				margin: 0 0 12px;
+				font-size: 13px;
+				font-weight: 700;
+				letter-spacing: 0.02em;
+				color: var(--accent-hover);
+			}
+
+			.permissions__col--not h3 {
+				color: var(--faint);
+			}
+
+			.permissions__col ul {
+				display: flex;
+				flex-direction: column;
+				gap: 10px;
+				margin: 0;
+				padding: 0;
+				list-style: none;
+			}
+
+			.permissions__col li {
+				position: relative;
+				padding-left: 22px;
+				color: var(--text-soft);
+				font-size: 13.5px;
+				line-height: 1.55;
+			}
+
+			.permissions__col li::before {
+				content: '✓';
+				position: absolute;
+				left: 0;
+				color: var(--accent);
+				font-weight: 700;
+			}
+
+			.permissions__col--not li::before {
+				content: '✕';
+				color: var(--faint);
+			}
+
+			.permissions__link {
+				margin: 20px 0 0;
+				text-align: center;
+				font-size: 13px;
+			}
+
+			.permissions__link a {
+				color: var(--muted);
+				text-decoration: underline;
+				text-decoration-color: var(--border-strong);
+				text-underline-offset: 3px;
+			}
+
+			.permissions__link a:hover {
+				color: var(--text-soft);
+			}
+
 			.stack {
 				display: flex;
 				flex-wrap: wrap;
@@ -467,10 +561,60 @@
 				<div class="feature-card">
 					<h3>Privacy-respecting</h3>
 					<p>
-						No Tapedeck account, no telemetry, no database. Your
-						Google login only makes read-only YouTube API calls.
+						No Tapedeck account, no telemetry, no ad tracking. See
+						exactly what your Google sign-in accesses
+						<a href="#permissions">below</a>.
 					</p>
 				</div>
+			</section>
+
+			<section class="permissions" id="permissions">
+				<h2>Google permissions</h2>
+				<p class="permissions__intro">
+					Tapedeck asks you to sign in with Google for two things.
+					Here's exactly what that access does and doesn't cover.
+				</p>
+				<div class="permissions__grid">
+					<div class="permissions__col">
+						<h3>This app will</h3>
+						<ul>
+							<li>
+								Read the YouTube channels, playlists, and videos
+								you paste into Tapedeck (read-only) to build your
+								queue
+							</li>
+							<li>
+								Store your Tapedeck library and mixtapes in a
+								private, app-only folder in your Google Drive, so
+								they sync across your devices
+							</li>
+							<li>
+								Use your basic Google profile (name and email) to
+								identify your signed-in account
+							</li>
+						</ul>
+					</div>
+					<div class="permissions__col permissions__col--not">
+						<h3>This app will not</h3>
+						<ul>
+							<li>
+								Post, upload, delete, or change anything in your
+								YouTube account, or read your subscriptions
+							</li>
+							<li>
+								Access any other files in your Drive — only
+								Tapedeck's own private app-data folder
+							</li>
+							<li>
+								Share your data with anyone, or use it for
+								advertising
+							</li>
+						</ul>
+					</div>
+				</div>
+				<p class="permissions__link">
+					<a href="/privacy.html">Read the full privacy policy</a>
+				</p>
 			</section>
 
 			<div class="stack">
