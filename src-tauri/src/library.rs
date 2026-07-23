@@ -36,3 +36,26 @@ pub fn save_library(app: AppHandle, library: serde_json::Value) -> Result<(), St
     fs::write(&temp, contents).map_err(|error| format!("Could not write the library: {error}"))?;
     fs::rename(&temp, &path).map_err(|error| format!("Could not save the library: {error}"))
 }
+
+/// Lets the user pick where to save their exported library instead of
+/// silently dropping it in Downloads. Returns false when the user cancels.
+#[tauri::command]
+pub async fn export_library(app: AppHandle, contents: String) -> Result<bool, String> {
+    use tauri_plugin_dialog::DialogExt;
+
+    let chosen = app
+        .dialog()
+        .file()
+        .set_file_name("tapedeck-library.json")
+        .add_filter("JSON", &["json"])
+        .blocking_save_file();
+
+    let Some(chosen) = chosen else {
+        return Ok(false);
+    };
+    let path = chosen
+        .into_path()
+        .map_err(|error| format!("Could not resolve the save location: {error}"))?;
+    fs::write(&path, contents).map_err(|error| format!("Could not write the library: {error}"))?;
+    Ok(true)
+}

@@ -41,6 +41,10 @@ fn main() {
             "media_set_playback",
             "load_library",
             "save_library",
+            "export_library",
+            "drive_download_library",
+            "drive_upload_library",
+            "drive_touch_device",
         ]),
     ))
     .expect("failed to run tauri-build");

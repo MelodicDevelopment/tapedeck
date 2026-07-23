@@ -1,7 +1,17 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
-  <rect x="28" y="28" width="200" height="200" rx="56" fill="#8b7ff0"/>
-  <g transform="translate(64 64) scale(.5)">
-    <rect width="256" height="256" fill="none"/>
-    <path d="M240,128a15.74,15.74,0,0,1-7.6,13.51L88.32,229.65a16,16,0,0,1-16.2.3A15.86,15.86,0,0,1,64,216.13V39.87a15.86,15.86,0,0,1,8.12-13.82,16,16,0,0,1,16.2.3L232.4,114.49A15.74,15.74,0,0,1,240,128Z" fill="#171512"/>
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2d2822"></stop><stop offset="1" stop-color="#14110e"></stop></linearGradient>
+    <linearGradient id="ac" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#b6acf8"></stop><stop offset="1" stop-color="#7263e7"></stop></linearGradient>
+  </defs>
+  <!-- Scaled to ~80% and centered: macOS app icons keep a margin around the
+       squircle so they read as the same size as other Dock icons — a
+       full-bleed 1024x1024 fill renders visibly larger than its neighbors. -->
+  <g transform="translate(512 512) scale(0.8) translate(-512 -512)">
+    <rect width="1024" height="1024" rx="229" fill="url(#bg)"></rect>
+    <circle cx="512" cy="512" r="320" fill="none" stroke="url(#ac)" stroke-width="34"></circle>
+    <circle cx="512" cy="512" r="232" fill="none" stroke="url(#ac)" stroke-width="12" stroke-dasharray="14 32"></circle>
+    <circle cx="512" cy="512" r="148" fill="url(#ac)"></circle>
+    <path d="M474 442 L600 512 L474 582 Z" fill="#14110e" stroke="#14110e" stroke-width="40" stroke-linejoin="round"></path>
+    <rect x="10" y="10" width="1004" height="1004" rx="224" fill="none" stroke="rgba(255,255,255,.05)" stroke-width="4"></rect>
   </g>
 </svg>

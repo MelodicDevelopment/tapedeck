@@ -34,7 +34,7 @@ export function isDesktopApp() {
     || new URLSearchParams(window.location.search).get('desktop') === '1'
 }
 
-function normalizeCommandError(error: unknown, fallback: string) {
+export function normalizeCommandError(error: unknown, fallback: string) {
   if (typeof error === 'object' && error !== null) {
     const commandError = error as CommandError
     return new DesktopCommandError(commandError.message ?? fallback, commandError.code)

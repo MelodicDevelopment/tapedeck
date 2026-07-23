@@ -15,6 +15,10 @@
     "allow-media-set-metadata",
     "allow-media-set-playback",
     "allow-load-library",
-    "allow-save-library"
+    "allow-save-library",
+    "allow-export-library",
+    "allow-drive-download-library",
+    "allow-drive-upload-library",
+    "allow-drive-touch-device"
   ]
 }

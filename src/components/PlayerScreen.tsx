@@ -1,12 +1,18 @@
 import {
+  ArrowLeft,
   CircleOff,
+  GripVertical,
+  HelpCircle,
   ListMusic,
   ListPlus,
-  RefreshCcw,
+  Music,
+  Target,
+  Video,
   X,
   Youtube,
 } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
+import type { AuthStatus } from '../api/auth'
 import {
   MediaControlEvent,
   onMediaControl,
@@ -14,7 +20,7 @@ import {
   updateMediaPlayback,
 } from '../api/media'
 import { formatTime, Playlist, thumbnailUrl, Track } from '../data/mockPlaylist'
-import type { Mixtape } from '../lib/library'
+import type { Mixtape, PlaybackSettings, SavedSource } from '../lib/library'
 import {
   advanceIndex,
   nextRepeatMode,
@@ -22,44 +28,90 @@ import {
   shuffledOrder,
   type RepeatMode,
 } from '../lib/playback'
+import { parseVolumeBadge } from '../lib/trackTitle'
+import { AccountSummary } from './AccountSummary'
 import { Brand } from './Brand'
 import { MixtapePicker } from './MixtapePicker'
 import { PlaybackBar } from './PlaybackBar'
+import { ShortcutsModal } from './ShortcutsModal'
+import { SourceSwitcher } from './SourceSwitcher'
 import { YouTubePlayer } from './YouTubePlayer'
 
 type PlayerScreenProps = {
   playlist: Playlist
   mixtapes: Mixtape[]
+  sources: SavedSource[]
   activeMixtapeId?: string | null
+  authStatus: AuthStatus | null
+  authAction: 'sign-in' | 'sign-out' | null
+  initialShuffle: boolean
+  initialRepeatMode: RepeatMode
+  initialVolume: number
+  initialResumeTrackId?: string
+  initialResumePositionSecs?: number
   onChangeSource: () => void
+  onSelectSource: (url: string) => void
+  onSelectMixtape: (mixtapeId: string) => void
   onToggleMixtapeTrack: (mixtapeId: string, track: Track) => void
+  onReorderMixtapeTrack: (mixtapeId: string, fromIndex: number, toIndex: number) => void
   onCreateMixtape: (name: string, track: Track) => void
+  onPlaybackSettingsChange: (settings: PlaybackSettings) => void
+  onPlaybackProgress: (trackId: string, positionSecs: number) => void
+  onSignOut: () => void
 }
 
 export function PlayerScreen({
   playlist,
   mixtapes,
+  sources,
   activeMixtapeId,
+  authStatus,
+  authAction,
+  initialShuffle,
+  initialRepeatMode,
+  initialVolume,
+  initialResumeTrackId,
+  initialResumePositionSecs,
   onChangeSource,
+  onSelectSource,
+  onSelectMixtape,
   onToggleMixtapeTrack,
+  onReorderMixtapeTrack,
   onCreateMixtape,
+  onPlaybackSettingsChange,
+  onPlaybackProgress,
+  onSignOut,
 }: PlayerScreenProps) {
-  const [currentIndex, setCurrentIndex] = useState(0)
+  // A saved position resumes at that track/time; otherwise start at the top.
+  const resumeIndex = initialResumeTrackId
+    ? playlist.tracks.findIndex((entry) => entry.id === initialResumeTrackId)
+    : -1
+  const startIndex = resumeIndex >= 0 ? resumeIndex : 0
+  const startElapsed = resumeIndex >= 0 ? (initialResumePositionSecs ?? 0) : 0
+
+  const [currentIndex, setCurrentIndex] = useState(startIndex)
   // Loading a source is an explicit "play this" action, so start right away.
-  const [playing, setPlaying] = useState(!playlist.tracks[0].unavailable)
-  const [elapsed, setElapsed] = useState(0)
-  const [duration, setDuration] = useState(playlist.tracks[0].duration)
-  const [volume, setVolume] = useState(70)
+  const [playing, setPlaying] = useState(!playlist.tracks[startIndex].unavailable)
+  const [elapsed, setElapsed] = useState(startElapsed)
+  const [duration, setDuration] = useState(playlist.tracks[startIndex].duration)
+  const [volume, setVolume] = useState(initialVolume)
   const [failedVideoIds, setFailedVideoIds] = useState<Set<string>>(new Set())
   const [seekTo, setSeekTo] = useState<{ seconds: number; requestId: number } | null>(null)
   const [pickerTrack, setPickerTrack] = useState<Track | null>(null)
-  const [shuffle, setShuffle] = useState(false)
-  const [repeatMode, setRepeatMode] = useState<RepeatMode>('off')
+  const [shuffle, setShuffle] = useState(initialShuffle)
+  const [repeatMode, setRepeatMode] = useState<RepeatMode>(initialRepeatMode)
+  const [dragIndex, setDragIndex] = useState<number | null>(null)
+  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null)
+  const [shortcutsOpen, setShortcutsOpen] = useState(false)
+  const [mode, setMode] = useState<'video' | 'audio'>('video')
   const shuffleOrderRef = useRef<number[]>([])
   const trackListRef = useRef<HTMLOListElement | null>(null)
 
   const track = playlist.tracks[currentIndex]
   const unavailable = Boolean(track.unavailable || failedVideoIds.has(track.id))
+  // Nothing to show in audio mode when the track can't play at all — fall
+  // back to the video frame's own unavailable-state message.
+  const showAudioMode = mode === 'audio' && !unavailable
 
   const selectTrack = useCallback((index: number) => {
     const nextTrack = playlist.tracks[index]
@@ -173,9 +225,33 @@ export function PlayerScreen({
     }
   }, [shuffle, playlist])
 
-  // Keep the queue following the active song: center its row in the list.
-  // Scrolls only the list itself so the rest of the layout never jumps.
+  // Debounced so dragging the volume slider doesn't write to disk on every
+  // tick; shuffle/repeat toggle rarely enough that the same short delay is
+  // unnoticeable there too.
   useEffect(() => {
+    const timeout = setTimeout(() => {
+      onPlaybackSettingsChange({ shuffle, repeatMode, volume })
+    }, 400)
+    return () => clearTimeout(timeout)
+  }, [shuffle, repeatMode, volume, onPlaybackSettingsChange])
+
+  // Checkpoints the resume position periodically (elapsed ticks every 500ms
+  // while playing, so this can't be a simple debounce on elapsed itself —
+  // it would never settle) and once more on unmount, so switching away or
+  // closing the app doesn't lose more than a few seconds of progress.
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (currentTrackIdRef.current) onPlaybackProgress(currentTrackIdRef.current, elapsedRef.current)
+    }, 15000)
+    return () => {
+      clearInterval(interval)
+      if (currentTrackIdRef.current) onPlaybackProgress(currentTrackIdRef.current, elapsedRef.current)
+    }
+  }, [onPlaybackProgress])
+
+  // Centers the current track's row in the queue list. Scrolls only the
+  // list itself so the rest of the layout never jumps.
+  const scrollToCurrent = useCallback((behavior: ScrollBehavior = 'smooth') => {
     const list = trackListRef.current
     if (!list || typeof list.scrollTo !== 'function') return
     const row = list.querySelector('[aria-current="true"]')?.closest('li')
@@ -183,8 +259,13 @@ export function PlayerScreen({
     const listRect = list.getBoundingClientRect()
     const rowRect = row.getBoundingClientRect()
     const delta = rowRect.top - listRect.top - (list.clientHeight - rowRect.height) / 2
-    list.scrollTo({ top: list.scrollTop + delta, behavior: 'smooth' })
-  }, [currentIndex, playlist])
+    list.scrollTo({ top: list.scrollTop + delta, behavior })
+  }, [])
+
+  // Keep the queue following the active song automatically too.
+  useEffect(() => {
+    scrollToCurrent()
+  }, [currentIndex, playlist, scrollToCurrent])
 
   useEffect(() => onMediaControl((event) => mediaControlRef.current(event)), [])
 
@@ -220,43 +301,95 @@ export function PlayerScreen({
       } else if (event.key === 'ArrowDown') {
         event.preventDefault()
         adjustVolume(-5)
+      } else if (event.key === 'ArrowRight') {
+        event.preventDefault()
+        mediaControlRef.current({ action: 'next' })
+      } else if (event.key === 'ArrowLeft') {
+        event.preventDefault()
+        mediaControlRef.current({ action: 'previous' })
+      } else if (event.shiftKey && event.key.toLowerCase() === 's') {
+        event.preventDefault()
+        setShuffle((current) => !current)
+      } else if (event.key === '?') {
+        event.preventDefault()
+        setShortcutsOpen(true)
       }
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
   }, [])
 
+  function handleTrackDrop(index: number) {
+    if (activeMixtapeId && dragIndex !== null && dragIndex !== index) {
+      onReorderMixtapeTrack(activeMixtapeId, dragIndex, index)
+    }
+    setDragIndex(null)
+    setDragOverIndex(null)
+  }
+
   return (
     <main className="loaded-shell">
       <div className="player-workspace">
         <aside className="queue-panel" aria-label="Video queue">
-          <div className="source-card">
-            <img className="source-card__art" src={playlist.thumbnail || thumbnailUrl(playlist.tracks[0].id)} alt="" />
-            <div className="source-card__copy">
-              <strong>{playlist.name}</strong>
-              <span>{playlist.kind} · {playlist.tracks.length} videos</span>
-            </div>
-            <button
-              className="source-card__change"
-              onClick={onChangeSource}
-              aria-label="Load a different YouTube URL"
-              title="Load a different URL"
-            >
-              <RefreshCcw aria-hidden="true" />
-            </button>
-          </div>
+          <SourceSwitcher
+            playlist={playlist}
+            mixtapes={mixtapes}
+            sources={sources}
+            activeMixtapeId={activeMixtapeId}
+            onSelectSource={onSelectSource}
+            onSelectMixtape={onSelectMixtape}
+            onChangeSource={onChangeSource}
+          />
 
           <div className="queue-heading">
             <span><ListMusic aria-hidden="true" /> Up next</span>
-            <span>{playlist.tracks.length} tracks</span>
+            <button
+              type="button"
+              className="queue-heading__jump"
+              onClick={() => scrollToCurrent()}
+              aria-label="Scroll to the current track"
+              title="Scroll to the current track"
+            >
+              <Target aria-hidden="true" /> {playlist.tracks.length} tracks
+            </button>
           </div>
 
           <ol className="track-list" aria-label="Tracks" ref={trackListRef}>
             {playlist.tracks.map((item, index) => {
               const isCurrent = index === currentIndex
               const isUnavailable = Boolean(item.unavailable || failedVideoIds.has(item.id))
+              const reorderable = Boolean(activeMixtapeId)
+              const badge = parseVolumeBadge(item.title)
               return (
-                <li key={item.id} className="track-item">
+                <li
+                  key={item.id}
+                  className={`track-item${reorderable && dragOverIndex === index ? ' track-item--drag-over' : ''}`}
+                  draggable={reorderable}
+                  onDragStart={reorderable ? () => setDragIndex(index) : undefined}
+                  onDragOver={
+                    reorderable
+                      ? (event) => {
+                          event.preventDefault()
+                          setDragOverIndex(index)
+                        }
+                      : undefined
+                  }
+                  onDragLeave={reorderable ? () => setDragOverIndex((current) => (current === index ? null : current)) : undefined}
+                  onDrop={
+                    reorderable
+                      ? (event) => {
+                          event.preventDefault()
+                          handleTrackDrop(index)
+                        }
+                      : undefined
+                  }
+                  onDragEnd={reorderable ? () => { setDragIndex(null); setDragOverIndex(null) } : undefined}
+                >
+                  {reorderable && (
+                    <span className="track-item__grip" aria-hidden="true">
+                      <GripVertical />
+                    </span>
+                  )}
                   <button
                     className={`track-row${isCurrent ? ' track-row--current' : ''}`}
                     onClick={() => selectTrack(index)}
@@ -276,7 +409,14 @@ export function PlayerScreen({
                       )}
                     </span>
                     <span className="track-row__copy">
-                      <strong className={isUnavailable ? 'muted' : undefined}>{item.title}</strong>
+                      <strong className={isUnavailable ? 'muted' : undefined}>
+                        {badge && (
+                          <span className={`track-row__badge${isCurrent ? ' track-row__badge--current' : ''}`}>
+                            {badge.badge}
+                          </span>
+                        )}
+                        {badge?.rest ?? item.title}
+                      </strong>
                       <span>{isUnavailable ? 'Unavailable on YouTube' : item.artist}</span>
                     </span>
                     <time>{formatTime(item.duration)}</time>
@@ -310,15 +450,80 @@ export function PlayerScreen({
 
         <section className="player-panel" aria-label="Now playing">
           <header className="player-header">
-            <Brand compact />
-            <span className="youtube-source">
-              <Youtube aria-hidden="true" />
-              Streaming from YouTube
-            </span>
+            <div className="player-header__left">
+              <Brand compact />
+              <button
+                type="button"
+                className="player-header__back"
+                onClick={onChangeSource}
+                aria-label="Back to your library"
+                title="Back to your library"
+              >
+                <ArrowLeft aria-hidden="true" /> Library
+              </button>
+            </div>
+
+            <div className="mode-toggle" role="group" aria-label="Playback mode">
+              <button
+                type="button"
+                className={`mode-toggle__option${mode === 'video' ? ' mode-toggle__option--active' : ''}`}
+                onClick={() => setMode('video')}
+                aria-pressed={mode === 'video'}
+              >
+                <Video aria-hidden="true" /> Video
+              </button>
+              <button
+                type="button"
+                className={`mode-toggle__option${mode === 'audio' ? ' mode-toggle__option--active' : ''}`}
+                onClick={() => setMode('audio')}
+                aria-pressed={mode === 'audio'}
+              >
+                <Music aria-hidden="true" /> Audio
+              </button>
+            </div>
+
+            <div className="player-header__right">
+              <span className="youtube-source">
+                <Youtube aria-hidden="true" />
+                Streaming from YouTube
+              </span>
+              <button
+                type="button"
+                className="player-header__icon-button"
+                onClick={() => setShortcutsOpen(true)}
+                aria-label="Keyboard shortcuts"
+                title="Keyboard shortcuts"
+              >
+                <HelpCircle aria-hidden="true" />
+              </button>
+              <AccountSummary authStatus={authStatus} authAction={authAction} onSignOut={onSignOut} />
+            </div>
           </header>
 
           <div className="player-stage">
-            <div className={`video-frame${unavailable ? ' video-frame--unavailable' : ''}`}>
+            {showAudioMode && (
+              <div className="audio-mode">
+                <div className="audio-mode__art">
+                  <img src={thumbnailUrl(track.id)} alt="" />
+                  <span className={`audio-mode__reel${playing ? ' audio-mode__reel--spinning' : ''}`} aria-hidden="true">
+                    <span className="audio-mode__reel-ring" />
+                    <span className="audio-mode__reel-hub" />
+                  </span>
+                </div>
+                <div className="audio-mode__copy">
+                  <p className="track-details__label">NOW PLAYING</p>
+                  <h1>{track.title}</h1>
+                  <p>{track.artist} <span aria-hidden="true">·</span> {formatTime(track.duration)}</p>
+                  <button type="button" className="audio-mode__show-video" onClick={() => setMode('video')}>
+                    <img src={thumbnailUrl(track.id)} alt="" /> Show video
+                  </button>
+                </div>
+              </div>
+            )}
+
+            <div
+              className={`video-frame${unavailable ? ' video-frame--unavailable' : ''}${showAudioMode ? ' video-frame--hidden' : ''}`}
+            >
               {unavailable ? (
                 <div className="unavailable-state" role="status">
                   <CircleOff aria-hidden="true" />
@@ -335,6 +540,7 @@ export function PlayerScreen({
                   playing={playing}
                   volume={volume}
                   seekTo={seekTo}
+                  startSeconds={elapsed}
                   onPlayingChange={setPlaying}
                   onProgress={(nextElapsed, nextDuration) => {
                     setElapsed(nextElapsed)
@@ -346,14 +552,18 @@ export function PlayerScreen({
               )}
             </div>
 
-            <div className="track-details">
-              <div>
-                <p className="track-details__label">NOW PLAYING</p>
-                <h1>{track.title}</h1>
-                <p>{track.artist} <span aria-hidden="true">·</span> YouTube video</p>
+            {!showAudioMode && (
+              <div className="track-details">
+                <div>
+                  <p className="track-details__label">NOW PLAYING</p>
+                  <h1>{track.title}</h1>
+                  <p>{track.artist} <span aria-hidden="true">·</span> YouTube video</p>
+                </div>
+                <button type="button" className="track-details__jump" onClick={() => scrollToCurrent()}>
+                  Track {currentIndex + 1} of {playlist.tracks.length}
+                </button>
               </div>
-              <span>Track {currentIndex + 1} of {playlist.tracks.length}</span>
-            </div>
+            )}
           </div>
         </section>
       </div>
@@ -385,6 +595,8 @@ export function PlayerScreen({
           onClose={() => setPickerTrack(null)}
         />
       )}
+
+      {shortcutsOpen && <ShortcutsModal onClose={() => setShortcutsOpen(false)} />}
     </main>
   )
 }

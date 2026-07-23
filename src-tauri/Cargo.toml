@@ -15,6 +15,7 @@ tauri-build = { version = "2", features = [] }
 
 [dependencies]
 base64 = "0.22"
+gethostname = "0.5"
 hickory-resolver = "0.24"
 keyring = { version = "3.6.3", default-features = false, features = ["apple-native", "windows-native", "sync-secret-service", "crypto-rust"] }
 open = "5.4"
@@ -26,6 +27,7 @@ serde_json = "1"
 sha2 = "0.10"
 souvlaki = "0.8.3"
 tauri = { version = "2", features = [] }
+tauri-plugin-dialog = "2"
 tauri-plugin-localhost = "2"
 tauri-plugin-single-instance = "2"
 tokio = { version = "1.53.0", features = ["time"] }

@@ -5,6 +5,8 @@ type YouTubePlayerProps = {
   playing: boolean
   volume: number
   seekTo: { seconds: number; requestId: number } | null
+  /** Cues the video to start here (e.g. resuming a saved position) instead of 0. */
+  startSeconds?: number
   onPlayingChange: (playing: boolean) => void
   onProgress: (elapsed: number, duration: number) => void
   onEnded: () => void
@@ -18,6 +20,7 @@ export function YouTubePlayer({
   playing,
   volume,
   seekTo,
+  startSeconds,
   onPlayingChange,
   onProgress,
   onEnded,
@@ -42,10 +45,12 @@ export function YouTubePlayer({
         height: '100%',
         playerVars: {
           autoplay: 0,
-          controls: 1,
+          controls: 0,
+          disablekb: 1,
           playsinline: 1,
           rel: 0,
           modestbranding: 1,
+          ...(startSeconds && startSeconds > 0 ? { start: Math.floor(startSeconds) } : {}),
           ...(window.location.protocol === 'http:' || window.location.protocol === 'https:'
             ? { origin: window.location.origin }
             : {}),

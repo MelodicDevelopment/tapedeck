@@ -4,10 +4,14 @@ import {
   createMixtape,
   deleteMixtape,
   emptyLibrary,
+  mergeLibrary,
   mixtapeToPlaylist,
   normalizeLibrary,
+  recordPlaybackProgress,
   removeSource,
+  reorderMixtapeTrack,
   toggleMixtapeTrack,
+  touchLastPlayed,
   upsertSource,
 } from './library'
 
@@ -18,6 +22,7 @@ const source = (url: string) => ({
   name: `Source ${url}`,
   kind: 'YouTube channel',
   thumbnail: '',
+  tracks: [] as Track[],
 })
 
 describe('library sources', () => {
@@ -81,6 +86,121 @@ describe('mixtapes', () => {
   })
 })
 
+describe('reorderMixtapeTrack', () => {
+  it('moves a track forward and backward', () => {
+    let library = createMixtape(emptyLibrary(), 'Mix', track('a'))
+    const id = library.mixtapes[0].id
+    library = toggleMixtapeTrack(library, id, track('b'))
+    library = toggleMixtapeTrack(library, id, track('c'))
+    expect(library.mixtapes[0].tracks.map((entry) => entry.id)).toEqual(['a', 'b', 'c'])
+
+    library = reorderMixtapeTrack(library, id, 0, 2)
+    expect(library.mixtapes[0].tracks.map((entry) => entry.id)).toEqual(['b', 'c', 'a'])
+
+    library = reorderMixtapeTrack(library, id, 2, 0)
+    expect(library.mixtapes[0].tracks.map((entry) => entry.id)).toEqual(['a', 'b', 'c'])
+  })
+
+  it('is a no-op for the same index or an unknown mixtape', () => {
+    let library = createMixtape(emptyLibrary(), 'Mix', track('a'))
+    const id = library.mixtapes[0].id
+    library = toggleMixtapeTrack(library, id, track('b'))
+
+    expect(reorderMixtapeTrack(library, id, 0, 0)).toEqual(library)
+    expect(reorderMixtapeTrack(library, 'missing-id', 0, 1)).toEqual(library)
+  })
+})
+
+describe('playback tracking', () => {
+  it('records when a source or mixtape was last opened', () => {
+    let library = upsertSource(emptyLibrary(), source('https://youtube.com/@a'))
+    library = touchLastPlayed(library, { type: 'source', url: 'https://youtube.com/@a' })
+    expect(library.sources[0].lastPlayedAt).toBeTruthy()
+
+    library = createMixtape(library, 'Mix', track('abc'))
+    const id = library.mixtapes[0].id
+    library = touchLastPlayed(library, { type: 'mixtape', id })
+    expect(library.mixtapes[0].lastPlayedAt).toBeTruthy()
+  })
+
+  it('records resume position for a source or mixtape', () => {
+    let library = upsertSource(emptyLibrary(), source('https://youtube.com/@a'))
+    library = recordPlaybackProgress(library, { type: 'source', url: 'https://youtube.com/@a' }, 'trackA', 42)
+    expect(library.sources[0]).toMatchObject({ lastTrackId: 'trackA', lastPositionSecs: 42 })
+
+    library = createMixtape(library, 'Mix', track('abc'))
+    const id = library.mixtapes[0].id
+    library = recordPlaybackProgress(library, { type: 'mixtape', id }, 'abc', 10)
+    expect(library.mixtapes[0]).toMatchObject({ lastTrackId: 'abc', lastPositionSecs: 10 })
+  })
+
+  it('preserves resume state when a source is re-saved (e.g. a metadata refresh)', () => {
+    let library = upsertSource(emptyLibrary(), source('https://youtube.com/@a'))
+    library = recordPlaybackProgress(library, { type: 'source', url: 'https://youtube.com/@a' }, 'trackA', 42)
+    library = upsertSource(library, source('https://youtube.com/@a'))
+    expect(library.sources[0]).toMatchObject({ lastTrackId: 'trackA', lastPositionSecs: 42 })
+  })
+
+  it('bumps a mixtape updatedAt when its tracks change', () => {
+    let library = createMixtape(emptyLibrary(), 'Mix', track('a'))
+    const createdAt = library.mixtapes[0].updatedAt
+    library = toggleMixtapeTrack(library, library.mixtapes[0].id, track('b'))
+    expect(library.mixtapes[0].updatedAt >= createdAt).toBe(true)
+  })
+})
+
+describe('mergeLibrary', () => {
+  it('dedupes sources by URL, keeping the most recently saved', () => {
+    const current = upsertSource(emptyLibrary(), source('https://youtube.com/@a'))
+    const incoming = {
+      ...emptyLibrary(),
+      sources: [{ ...current.sources[0], savedAt: '2030-01-01T00:00:00.000Z' }],
+    }
+
+    const merged = mergeLibrary(current, incoming)
+    expect(merged.sources).toHaveLength(1)
+    expect(merged.sources[0].savedAt).toBe('2030-01-01T00:00:00.000Z')
+  })
+
+  it('keeps the copy with the more recent lastPlayedAt even if its savedAt is older', () => {
+    const current = {
+      ...emptyLibrary(),
+      sources: [{ ...source('https://youtube.com/@a'), savedAt: '2020-01-01T00:00:00.000Z', lastPlayedAt: '2030-06-01T00:00:00.000Z', lastPositionSecs: 99 }],
+    }
+    const incoming = {
+      ...emptyLibrary(),
+      sources: [{ ...source('https://youtube.com/@a'), savedAt: '2025-01-01T00:00:00.000Z' }],
+    }
+
+    const merged = mergeLibrary(current, incoming)
+    expect(merged.sources[0].lastPositionSecs).toBe(99)
+  })
+
+  it('merges mixtapes by id without duplicating them on repeat import', () => {
+    const current = createMixtape(emptyLibrary(), 'Mix A', track('a'))
+    const incoming = createMixtape(emptyLibrary(), 'Mix B', track('b'))
+
+    const merged = mergeLibrary(current, incoming)
+    expect(merged.mixtapes.map((entry) => entry.name).sort()).toEqual(['Mix A', 'Mix B'])
+
+    const mergedAgain = mergeLibrary(merged, incoming)
+    expect(mergedAgain.mixtapes).toHaveLength(2)
+  })
+
+  it('keeps the more recently updated mixtape rather than always taking the incoming one', () => {
+    const current = createMixtape(emptyLibrary(), 'Mix', track('a'))
+    const id = current.mixtapes[0].id
+    const updated = toggleMixtapeTrack(current, id, track('b'))
+    const staleIncoming = {
+      ...emptyLibrary(),
+      mixtapes: [{ ...current.mixtapes[0], updatedAt: '2000-01-01T00:00:00.000Z' }],
+    }
+
+    const merged = mergeLibrary(updated, staleIncoming)
+    expect(merged.mixtapes[0].tracks.map((entry) => entry.id)).toEqual(['a', 'b'])
+  })
+})
+
 describe('normalizeLibrary', () => {
   it('returns an empty library for junk input', () => {
     expect(normalizeLibrary(null)).toEqual(emptyLibrary())
@@ -99,5 +219,23 @@ describe('normalizeLibrary', () => {
     expect(normalized.sources.map((entry) => entry.url)).toEqual(['https://youtube.com/@ok'])
     expect(normalized.mixtapes).toHaveLength(1)
     expect(normalized.mixtapes[0].tracks.map((entry) => entry.id)).toEqual(['abc'])
+  })
+
+  it('falls back to default playback settings when missing or malformed', () => {
+    expect(normalizeLibrary({}).playbackSettings).toEqual({ shuffle: false, repeatMode: 'off', volume: 70 })
+    expect(
+      normalizeLibrary({ playbackSettings: { shuffle: 'yes', repeatMode: 'loop', volume: 'loud' } }).playbackSettings,
+    ).toEqual({ shuffle: false, repeatMode: 'off', volume: 70 })
+  })
+
+  it('keeps valid playback settings', () => {
+    expect(
+      normalizeLibrary({ playbackSettings: { shuffle: true, repeatMode: 'one', volume: 42 } }).playbackSettings,
+    ).toEqual({ shuffle: true, repeatMode: 'one', volume: 42 })
+  })
+
+  it('clamps out-of-range volume', () => {
+    expect(normalizeLibrary({ playbackSettings: { volume: -20 } }).playbackSettings.volume).toBe(0)
+    expect(normalizeLibrary({ playbackSettings: { volume: 500 } }).playbackSettings.volume).toBe(100)
   })
 })
