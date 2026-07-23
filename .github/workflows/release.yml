@@ -59,7 +59,7 @@ jobs:
             | jq -r '.assets[] | select(.name | test("\\.jar$")) | .browser_download_url' | head -n1)
           echo "Downloading $url"
           curl -sL "$url" -o jsign.jar
-          echo "JSIGN_JAR=$(pwd)/jsign.jar" >> "$GITHUB_ENV"
+          echo "JSIGN_JAR=$(pwd -W)/jsign.jar" >> "$GITHUB_ENV"
 
       - run: npm ci
 
