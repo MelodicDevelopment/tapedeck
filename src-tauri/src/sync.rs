@@ -62,7 +62,10 @@ struct DriveErrorItem {
 /// project, a revoked grant, etc. — so the status code alone can't tell you
 /// which; this reads the response body's `reason` to give a message that
 /// points at the real fix instead of always saying "sign in again."
-async fn ensure_success(response: reqwest::Response, context: &str) -> Result<reqwest::Response, CommandError> {
+async fn ensure_success(
+    response: reqwest::Response,
+    context: &str,
+) -> Result<reqwest::Response, CommandError> {
     if response.status().is_success() {
         return Ok(response);
     }
@@ -102,7 +105,11 @@ async fn ensure_success(response: reqwest::Response, context: &str) -> Result<re
 /// Looks up a named file in the app's hidden Drive folder. `appDataFolder`
 /// is scoped to this app and invisible in the user's regular Drive — Google
 /// creates it automatically the first time a file is written there.
-async fn find_file_id(state: &AppState, token: &str, name: &str) -> Result<Option<String>, CommandError> {
+async fn find_file_id(
+    state: &AppState,
+    token: &str,
+    name: &str,
+) -> Result<Option<String>, CommandError> {
     #[derive(Deserialize)]
     struct FilesList {
         files: Vec<FileMeta>,
@@ -118,19 +125,29 @@ async fn find_file_id(state: &AppState, token: &str, name: &str) -> Result<Optio
             .client
             .get(DRIVE_FILES_ENDPOINT)
             .bearer_auth(token)
-            .query(&[("spaces", "appDataFolder"), ("q", query.as_str()), ("fields", "files(id)")]),
+            .query(&[
+                ("spaces", "appDataFolder"),
+                ("q", query.as_str()),
+                ("fields", "files(id)"),
+            ]),
     )
     .await
     .map_err(drive_unreachable)?;
     let response = ensure_success(response, "lookup").await?;
-    let list: FilesList = response
-        .json()
-        .await
-        .map_err(|_| CommandError::new("DRIVE_RESPONSE_ERROR", "Google Drive returned an unreadable file list."))?;
+    let list: FilesList = response.json().await.map_err(|_| {
+        CommandError::new(
+            "DRIVE_RESPONSE_ERROR",
+            "Google Drive returned an unreadable file list.",
+        )
+    })?;
     Ok(list.files.into_iter().next().map(|file| file.id))
 }
 
-async fn download_file(state: &AppState, token: &str, file_id: &str) -> Result<Vec<u8>, CommandError> {
+async fn download_file(
+    state: &AppState,
+    token: &str,
+    file_id: &str,
+) -> Result<Vec<u8>, CommandError> {
     let response = auth::send_with_retry(
         state
             .client
@@ -145,7 +162,12 @@ async fn download_file(state: &AppState, token: &str, file_id: &str) -> Result<V
         .bytes()
         .await
         .map(|bytes| bytes.to_vec())
-        .map_err(|_| CommandError::new("DRIVE_RESPONSE_ERROR", "Google Drive returned an unreadable file."))
+        .map_err(|_| {
+            CommandError::new(
+                "DRIVE_RESPONSE_ERROR",
+                "Google Drive returned an unreadable file.",
+            )
+        })
 }
 
 /// Drive's multipart upload wants an unnamed metadata part and an unnamed
@@ -164,7 +186,12 @@ fn build_multipart_body(name: &str, content: &[u8]) -> Vec<u8> {
     body
 }
 
-async fn create_file(state: &AppState, token: &str, name: &str, content: &[u8]) -> Result<String, CommandError> {
+async fn create_file(
+    state: &AppState,
+    token: &str,
+    name: &str,
+    content: &[u8],
+) -> Result<String, CommandError> {
     #[derive(Deserialize)]
     struct Created {
         id: String,
@@ -175,24 +202,36 @@ async fn create_file(state: &AppState, token: &str, name: &str, content: &[u8]) 
             .client
             .post(format!("{DRIVE_UPLOAD_ENDPOINT}?uploadType=multipart"))
             .bearer_auth(token)
-            .header("Content-Type", format!("multipart/related; boundary={MULTIPART_BOUNDARY}"))
+            .header(
+                "Content-Type",
+                format!("multipart/related; boundary={MULTIPART_BOUNDARY}"),
+            )
             .body(build_multipart_body(name, content)),
     )
     .await
     .map_err(drive_unreachable)?;
     let response = ensure_success(response, "create").await?;
-    let created: Created = response
-        .json()
-        .await
-        .map_err(|_| CommandError::new("DRIVE_RESPONSE_ERROR", "Google Drive returned an unreadable response."))?;
+    let created: Created = response.json().await.map_err(|_| {
+        CommandError::new(
+            "DRIVE_RESPONSE_ERROR",
+            "Google Drive returned an unreadable response.",
+        )
+    })?;
     Ok(created.id)
 }
 
-async fn update_file(state: &AppState, token: &str, file_id: &str, content: Vec<u8>) -> Result<(), CommandError> {
+async fn update_file(
+    state: &AppState,
+    token: &str,
+    file_id: &str,
+    content: Vec<u8>,
+) -> Result<(), CommandError> {
     let response = auth::send_with_retry(
         state
             .client
-            .patch(format!("{DRIVE_UPLOAD_ENDPOINT}/{file_id}?uploadType=media"))
+            .patch(format!(
+                "{DRIVE_UPLOAD_ENDPOINT}/{file_id}?uploadType=media"
+            ))
             .bearer_auth(token)
             .header("Content-Type", "application/json")
             .body(content),
@@ -203,7 +242,12 @@ async fn update_file(state: &AppState, token: &str, file_id: &str, content: Vec<
     Ok(())
 }
 
-async fn write_file(state: &AppState, token: &str, name: &str, content: Vec<u8>) -> Result<(), CommandError> {
+async fn write_file(
+    state: &AppState,
+    token: &str,
+    name: &str,
+    content: Vec<u8>,
+) -> Result<(), CommandError> {
     match find_file_id(state, token, name).await? {
         Some(file_id) => update_file(state, token, &file_id, content).await,
         None => create_file(state, token, name, &content).await.map(|_| ()),
@@ -211,12 +255,18 @@ async fn write_file(state: &AppState, token: &str, name: &str, content: Vec<u8>)
 }
 
 fn device_identity_path(app: &AppHandle) -> Result<PathBuf, CommandError> {
-    let dir = app
-        .path()
-        .app_data_dir()
-        .map_err(|error| CommandError::new("APP_DATA_DIR_ERROR", format!("Could not locate the app data directory: {error}")))?;
-    fs::create_dir_all(&dir)
-        .map_err(|error| CommandError::new("APP_DATA_DIR_ERROR", format!("Could not create the app data directory: {error}")))?;
+    let dir = app.path().app_data_dir().map_err(|error| {
+        CommandError::new(
+            "APP_DATA_DIR_ERROR",
+            format!("Could not locate the app data directory: {error}"),
+        )
+    })?;
+    fs::create_dir_all(&dir).map_err(|error| {
+        CommandError::new(
+            "APP_DATA_DIR_ERROR",
+            format!("Could not create the app data directory: {error}"),
+        )
+    })?;
     Ok(dir.join("device.json"))
 }
 
@@ -235,10 +285,18 @@ fn load_or_create_device_identity(app: &AppHandle) -> Result<DeviceIdentity, Com
         id: generate_device_id(),
         name: device_display_name(),
     };
-    let contents = serde_json::to_vec_pretty(&identity)
-        .map_err(|error| CommandError::new("APP_DATA_DIR_ERROR", format!("Could not save this device's identity: {error}")))?;
-    fs::write(&path, contents)
-        .map_err(|error| CommandError::new("APP_DATA_DIR_ERROR", format!("Could not save this device's identity: {error}")))?;
+    let contents = serde_json::to_vec_pretty(&identity).map_err(|error| {
+        CommandError::new(
+            "APP_DATA_DIR_ERROR",
+            format!("Could not save this device's identity: {error}"),
+        )
+    })?;
+    fs::write(&path, contents).map_err(|error| {
+        CommandError::new(
+            "APP_DATA_DIR_ERROR",
+            format!("Could not save this device's identity: {error}"),
+        )
+    })?;
     Ok(identity)
 }
 
@@ -262,22 +320,35 @@ fn device_display_name() -> String {
 /// dumb transport, matching `load_library`/`save_library`'s philosophy of
 /// treating the library as an opaque JSON document.
 #[tauri::command]
-pub async fn drive_download_library(state: State<'_, AppState>) -> Result<Option<serde_json::Value>, CommandError> {
+pub async fn drive_download_library(
+    state: State<'_, AppState>,
+) -> Result<Option<serde_json::Value>, CommandError> {
     let token = auth::access_token(&state).await?;
     let Some(file_id) = find_file_id(&state, &token, LIBRARY_FILE_NAME).await? else {
         return Ok(None);
     };
     let bytes = download_file(&state, &token, &file_id).await?;
-    let value = serde_json::from_slice(&bytes)
-        .map_err(|_| CommandError::new("DRIVE_RESPONSE_ERROR", "The synced library is not valid JSON."))?;
+    let value = serde_json::from_slice(&bytes).map_err(|_| {
+        CommandError::new(
+            "DRIVE_RESPONSE_ERROR",
+            "The synced library is not valid JSON.",
+        )
+    })?;
     Ok(Some(value))
 }
 
 #[tauri::command]
-pub async fn drive_upload_library(state: State<'_, AppState>, library: serde_json::Value) -> Result<(), CommandError> {
+pub async fn drive_upload_library(
+    state: State<'_, AppState>,
+    library: serde_json::Value,
+) -> Result<(), CommandError> {
     let token = auth::access_token(&state).await?;
-    let content = serde_json::to_vec(&library)
-        .map_err(|error| CommandError::new("DRIVE_ERROR", format!("Could not serialize the library: {error}")))?;
+    let content = serde_json::to_vec(&library).map_err(|error| {
+        CommandError::new(
+            "DRIVE_ERROR",
+            format!("Could not serialize the library: {error}"),
+        )
+    })?;
     write_file(&state, &token, LIBRARY_FILE_NAME, content).await
 }
 
@@ -285,7 +356,11 @@ pub async fn drive_upload_library(state: State<'_, AppState>, library: serde_jso
 /// returns the full device list for the sync popover. Combined into one
 /// command since the frontend always wants both together after a sync.
 #[tauri::command]
-pub async fn drive_touch_device(app: AppHandle, state: State<'_, AppState>, now: String) -> Result<Vec<DeviceInfo>, CommandError> {
+pub async fn drive_touch_device(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    now: String,
+) -> Result<Vec<DeviceInfo>, CommandError> {
     let identity = load_or_create_device_identity(&app)?;
     let token = auth::access_token(&state).await?;
 
@@ -299,11 +374,18 @@ pub async fn drive_touch_device(app: AppHandle, state: State<'_, AppState>, now:
     };
     devices.insert(
         identity.id.clone(),
-        DeviceRecord { name: identity.name.clone(), last_active_at: now },
+        DeviceRecord {
+            name: identity.name.clone(),
+            last_active_at: now,
+        },
     );
 
-    let content = serde_json::to_vec(&devices)
-        .map_err(|error| CommandError::new("DRIVE_ERROR", format!("Could not serialize the device list: {error}")))?;
+    let content = serde_json::to_vec(&devices).map_err(|error| {
+        CommandError::new(
+            "DRIVE_ERROR",
+            format!("Could not serialize the device list: {error}"),
+        )
+    })?;
     match existing_file_id {
         Some(file_id) => update_file(&state, &token, &file_id, content).await?,
         None => {
@@ -315,7 +397,12 @@ pub async fn drive_touch_device(app: AppHandle, state: State<'_, AppState>, now:
         .into_iter()
         .map(|(id, record)| {
             let is_this_device = id == identity.id;
-            DeviceInfo { id, name: record.name, last_active_at: record.last_active_at, is_this_device }
+            DeviceInfo {
+                id,
+                name: record.name,
+                last_active_at: record.last_active_at,
+                is_this_device,
+            }
         })
         .collect();
     list.sort_by(|a, b| b.last_active_at.cmp(&a.last_active_at));
