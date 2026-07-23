@@ -1,6 +1,6 @@
 # Tapedeck
 
-**Your music, less noise.** Tapedeck is a lightweight desktop player that turns any YouTube channel or playlist into a focused, distraction-free listening queue — no comments, no recommendations, no rabbit holes.
+**Your queue, less noise.** Tapedeck is a lightweight desktop player that turns any YouTube channel or playlist into a focused, distraction-free queue — no comments, no recommendations, no rabbit holes.
 
 [![CI](https://github.com/MelodicDevelopment/tapedeck/actions/workflows/ci.yml/badge.svg)](https://github.com/MelodicDevelopment/tapedeck/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-8b7ff0.svg)](LICENSE)
@@ -8,16 +8,16 @@
 [![React](https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=white)](https://react.dev)
 [![Rust](https://img.shields.io/badge/Rust-stable-DEA584?logo=rust&logoColor=white)](https://www.rust-lang.org)
 
-![Tapedeck welcome screen with saved channels and mixtapes](docs/screenshot.png)
+![Tapedeck welcome screen with saved channels and mixtapes](web/screenshot.png)
 
-Videos always play through the visible, official YouTube embedded player. Tapedeck never downloads or extracts audio — it is a *player*, not a downloader.
+Videos always play through the visible, official YouTube embedded player. Tapedeck never downloads or extracts anything — it is a *player*, not a downloader.
 
 ## Features
 
-- **Paste a URL, get a queue** — channels (handles, IDs, legacy usernames), playlists, and YouTube Music links all resolve into a clean track list
+- **Paste a URL, get a queue** — channels (handles, IDs, legacy usernames), playlists, and YouTube Music links all resolve into a clean video queue
 - **Mixtapes** — build your own playlists from videos across any channels; they play instantly and live entirely on your machine
 - **Library** — every source you load is saved for one-click replay
-- **Real player controls** — shuffle, repeat (playlist or single song), autoplay, and a queue that follows the playing track
+- **Real player controls** — shuffle, repeat (playlist or single video), autoplay, and a queue that follows the playing track
 - **OS integration** — hardware media keys (play/pause/next/previous), Now Playing metadata in the macOS Control Center, and background playback when the window is closed
 - **Keyboard shortcuts** — Space to play/pause, arrow keys for volume
 - **Privacy-respecting by design** — no Tapedeck account, no telemetry, no database; your Google login exists solely to make read-only YouTube API calls, and the refresh token lives in your OS credential vault

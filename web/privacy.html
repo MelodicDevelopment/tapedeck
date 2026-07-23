@@ -1,0 +1,323 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#171512" />
+  <title>Privacy Policy — Tapedeck</title>
+  <meta name="description" content="How Tapedeck handles your data: no accounts, no telemetry, no server — your Google sign-in only makes read-only YouTube API calls and optional Drive sync." />
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Albert+Sans:wght@400;500;600;700&display=swap');
+
+    :root {
+      --accent: #8b7ff0;
+      --accent-hover: #a095f5;
+      --background: #171512;
+      --panel: #1b1916;
+      --well: #211e1a;
+      --raised: #26221b;
+      --border: #2b2823;
+      --border-strong: #3a3630;
+      --text: #f0ede7;
+      --text-soft: #c9c4bb;
+      --muted: #9a948a;
+      --faint: #716c63;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html, body {
+      margin: 0;
+      min-height: 100%;
+    }
+
+    body {
+      font-family: 'Albert Sans', Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      color: var(--text);
+      background: radial-gradient(circle at 50% 0%, rgb(139 127 240 / 7%), transparent 40rem), var(--background);
+      font-synthesis: none;
+      text-rendering: optimizeLegibility;
+    }
+
+    a {
+      color: var(--accent-hover);
+    }
+
+    .wrap {
+      max-width: 720px;
+      margin: 0 auto;
+      padding: 0 24px;
+    }
+
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 28px 0;
+    }
+
+    .brand {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 16px;
+      font-weight: 650;
+      letter-spacing: -0.01em;
+      text-decoration: none;
+      color: var(--text);
+    }
+
+    .brand__mark {
+      flex: 0 0 auto;
+    }
+
+    .nav-links {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .nav-link {
+      display: inline-flex;
+      align-items: center;
+      height: 36px;
+      padding: 0 14px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      color: var(--muted);
+      background: transparent;
+      font-size: 13px;
+      font-weight: 600;
+      text-decoration: none;
+      transition: background-color 150ms ease, color 150ms ease, border-color 150ms ease;
+    }
+
+    .nav-link:hover {
+      color: var(--text);
+      background: var(--raised);
+      border-color: var(--border-strong);
+    }
+
+    main {
+      padding: 12px 0 64px;
+    }
+
+    .eyebrow {
+      margin: 0 0 8px;
+      color: #a79ef1;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.13em;
+      text-transform: uppercase;
+    }
+
+    h1 {
+      margin: 0 0 6px;
+      font-size: clamp(1.8rem, 4vw, 2.4rem);
+      line-height: 1.15;
+      letter-spacing: -0.03em;
+    }
+
+    .updated {
+      margin: 0 0 40px;
+      color: var(--faint);
+      font-size: 13px;
+    }
+
+    section {
+      margin-bottom: 32px;
+    }
+
+    h2 {
+      font-size: 16px;
+      font-weight: 650;
+      letter-spacing: -0.01em;
+      margin: 0 0 10px;
+    }
+
+    p {
+      margin: 0 0 14px;
+      color: var(--text-soft);
+      font-size: 15px;
+      line-height: 1.7;
+    }
+
+    ul {
+      margin: 0 0 14px;
+      padding-left: 20px;
+      color: var(--text-soft);
+      font-size: 15px;
+      line-height: 1.7;
+    }
+
+    li {
+      margin-bottom: 6px;
+    }
+
+    li strong {
+      color: var(--text);
+    }
+
+    code {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.9em;
+      background: var(--well);
+      border: 1px solid var(--border);
+      border-radius: 5px;
+      padding: 1px 6px;
+    }
+
+    footer {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+      padding: 28px 0 40px;
+      color: var(--faint);
+      font-size: 12.5px;
+      text-align: center;
+      border-top: 1px solid var(--border);
+    }
+
+    footer a {
+      color: var(--muted);
+      text-decoration: underline;
+      text-decoration-color: var(--border-strong);
+      text-underline-offset: 3px;
+    }
+
+    footer a:hover {
+      color: var(--text-soft);
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <a class="brand" href="/" aria-label="Tapedeck">
+        <svg class="brand__mark" width="30" height="30" viewBox="0 0 1024 1024" aria-hidden="true">
+          <defs>
+            <linearGradient id="ac" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" stop-color="#b6acf8" />
+              <stop offset="1" stop-color="#7263e7" />
+            </linearGradient>
+          </defs>
+          <circle cx="512" cy="512" r="320" fill="none" stroke="url(#ac)" stroke-width="44" />
+          <circle cx="512" cy="512" r="228" fill="none" stroke="url(#ac)" stroke-width="26" stroke-dasharray="34 58" />
+          <circle cx="512" cy="512" r="148" fill="url(#ac)" />
+          <path d="M474 442 L600 512 L474 582 Z" fill="#14110e" stroke="#14110e" stroke-width="40" stroke-linejoin="round" />
+        </svg>
+        <span>Tapedeck</span>
+      </a>
+      <nav class="nav-links">
+        <a class="nav-link" href="/terms.html">Terms</a>
+        <a class="nav-link" href="https://github.com/MelodicDevelopment/tapedeck">GitHub</a>
+      </nav>
+    </header>
+
+    <main>
+      <p class="eyebrow">Legal</p>
+      <h1>Privacy Policy</h1>
+      <p class="updated">Last updated: July 23, 2026</p>
+
+      <section>
+        <h2>The short version</h2>
+        <p>
+          Tapedeck is a local desktop app. There is no Tapedeck account, no Tapedeck server, and no telemetry.
+          Your Google sign-in exists only to call the YouTube Data API on your behalf and, if you turn on sync,
+          to store your library in a private folder in your own Google Drive. Nothing you do in Tapedeck is
+          sent to Melodic Development or any third party we control, because we don't operate any backend for
+          the app to send it to.
+        </p>
+      </section>
+
+      <section>
+        <h2>What Tapedeck stores locally</h2>
+        <p>Tapedeck keeps the following on your own machine, in the app's local data directory:</p>
+        <ul>
+          <li><strong>Library</strong> — the channels, playlists, and mixtapes you've added, as plain JSON files.</li>
+          <li><strong>Google refresh token</strong> — held in your OS's secure credential store (macOS Keychain, Windows Credential Manager, or the Linux Secret Service), never in a plain file.</li>
+        </ul>
+        <p>Access tokens are kept in memory only and are discarded when you sign out or close the app.</p>
+      </section>
+
+      <section>
+        <h2>Google sign-in and API access</h2>
+        <p>
+          Tapedeck uses Google's OAuth installed-app flow (system browser + PKCE) to sign you in. Depending on
+          what you approve during sign-in, Tapedeck requests:
+        </p>
+        <ul>
+          <li><strong><code>openid</code>, <code>email</code>, <code>profile</code></strong> — to show your name and avatar in the app; no other use.</li>
+          <li><strong><code>youtube.readonly</code></strong> — read-only access to the YouTube Data API, used to resolve the channels, playlists, and videos you paste into Tapedeck. Tapedeck does not read your subscriptions, upload videos, or modify your YouTube account.</li>
+          <li><strong><code>drive.appdata</code></strong> — access to a hidden, app-specific folder in your Google Drive (not your regular Drive files), used only if you enable multi-device library sync. This folder is not visible in the Drive UI and no other app can read it.</li>
+        </ul>
+        <p>
+          These calls are made directly from the Tapedeck app on your device to Google's servers using your
+          own OAuth client credentials — they never pass through infrastructure operated by Melodic Development.
+        </p>
+      </section>
+
+      <section>
+        <h2>Playback</h2>
+        <p>
+          Videos play through the official, visible YouTube embedded player (IFrame Player API). That means
+          your interactions with playback are subject to
+          <a href="https://policies.google.com/privacy" target="_blank" rel="noopener">Google's Privacy Policy</a>
+          and <a href="https://www.youtube.com/t/terms" target="_blank" rel="noopener">YouTube's Terms of Service</a>,
+          the same as watching on youtube.com. Tapedeck never downloads, extracts, or proxies video or audio.
+        </p>
+      </section>
+
+      <section>
+        <h2>What we don't do</h2>
+        <ul>
+          <li>No analytics, crash reporting, or usage tracking of any kind.</li>
+          <li>No advertising, and no data is sold or shared with advertisers.</li>
+          <li>No Tapedeck account system — sign-in is entirely Google's.</li>
+          <li>No server-side database — Melodic Development has no copy of your library, sync data, or tokens.</li>
+        </ul>
+      </section>
+
+      <section>
+        <h2>Revoking access</h2>
+        <p>
+          You can disconnect Tapedeck at any time from Tapedeck's sign-out option, or from your
+          <a href="https://myaccount.google.com/permissions" target="_blank" rel="noopener">Google Account's third-party access settings</a>,
+          which also removes any synced data from your Drive appdata folder once you delete it there.
+        </p>
+      </section>
+
+      <section>
+        <h2>Open source</h2>
+        <p>
+          Tapedeck's full source is public and MIT-licensed, so every network call it makes can be verified
+          directly in the code: <a href="https://github.com/MelodicDevelopment/tapedeck">github.com/MelodicDevelopment/tapedeck</a>.
+        </p>
+      </section>
+
+      <section>
+        <h2>Changes to this policy</h2>
+        <p>
+          If this policy changes, we'll update the date at the top of this page and, for material changes,
+          note it in the project's release notes.
+        </p>
+      </section>
+
+      <section>
+        <h2>Contact</h2>
+        <p>
+          Questions about this policy can be filed as an issue on
+          <a href="https://github.com/MelodicDevelopment/tapedeck/issues">GitHub</a>.
+        </p>
+      </section>
+    </main>
+
+    <footer>
+      <p><a href="https://github.com/MelodicDevelopment/tapedeck">github.com/MelodicDevelopment/tapedeck</a></p>
+    </footer>
+  </div>
+</body>
+</html>

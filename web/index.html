@@ -1,0 +1,391 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#171512" />
+  <title>Tapedeck — Your queue, less noise.</title>
+  <meta name="description" content="Tapedeck is a lightweight desktop player that turns any YouTube channel or playlist into a focused, distraction-free queue." />
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Albert+Sans:wght@400;500;600;700&display=swap');
+
+    :root {
+      --accent: #8b7ff0;
+      --accent-hover: #a095f5;
+      --background: #171512;
+      --panel: #1b1916;
+      --well: #211e1a;
+      --raised: #26221b;
+      --border: #2b2823;
+      --border-strong: #3a3630;
+      --text: #f0ede7;
+      --text-soft: #c9c4bb;
+      --muted: #9a948a;
+      --faint: #716c63;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html, body {
+      margin: 0;
+      min-height: 100%;
+    }
+
+    body {
+      font-family: 'Albert Sans', Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      color: var(--text);
+      background: radial-gradient(circle at 50% 0%, rgb(139 127 240 / 7%), transparent 40rem), var(--background);
+      font-synthesis: none;
+      text-rendering: optimizeLegibility;
+    }
+
+    a {
+      color: inherit;
+    }
+
+    .wrap {
+      max-width: 880px;
+      margin: 0 auto;
+      padding: 0 24px;
+    }
+
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 28px 0;
+    }
+
+    .brand {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 16px;
+      font-weight: 650;
+      letter-spacing: -0.01em;
+    }
+
+    .brand__mark {
+      flex: 0 0 auto;
+    }
+
+    .nav-links {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .nav-link {
+      display: inline-flex;
+      align-items: center;
+      height: 36px;
+      padding: 0 14px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      color: var(--muted);
+      background: transparent;
+      font-size: 13px;
+      font-weight: 600;
+      text-decoration: none;
+      transition: background-color 150ms ease, color 150ms ease, border-color 150ms ease;
+    }
+
+    .nav-link:hover {
+      color: var(--text);
+      background: var(--raised);
+      border-color: var(--border-strong);
+    }
+
+    .hero {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 22px;
+      padding: 56px 0 48px;
+      text-align: center;
+    }
+
+    .eyebrow {
+      margin: 0;
+      color: #a79ef1;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.13em;
+      text-transform: uppercase;
+    }
+
+    .hero h1 {
+      max-width: 640px;
+      margin: 0;
+      font-size: clamp(2.1rem, 5vw, 3.1rem);
+      line-height: 1.1;
+      letter-spacing: -0.035em;
+    }
+
+    .hero p {
+      max-width: 500px;
+      margin: 0;
+      color: var(--muted);
+      font-size: 16px;
+      line-height: 1.6;
+      text-wrap: balance;
+    }
+
+    .hero-actions {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      margin-top: 6px;
+    }
+
+    .button {
+      display: inline-flex;
+      align-items: center;
+      gap: 9px;
+      height: 48px;
+      padding: 0 24px;
+      border: 0;
+      border-radius: 10px;
+      cursor: pointer;
+      font-size: 14.5px;
+      font-weight: 650;
+      text-decoration: none;
+      transition: background-color 150ms ease, transform 150ms ease, border-color 150ms ease;
+    }
+
+    .button svg {
+      width: 17px;
+      height: 17px;
+    }
+
+    .button--primary {
+      color: #151310;
+      background: var(--accent);
+    }
+
+    .button--primary:hover {
+      background: var(--accent-hover);
+    }
+
+    .button--primary:active {
+      transform: translateY(1px);
+    }
+
+    .button--secondary {
+      color: var(--text-soft);
+      background: transparent;
+      border: 1px solid var(--border-strong);
+    }
+
+    .button--secondary:hover {
+      color: var(--text);
+      background: var(--raised);
+    }
+
+    .screenshot-frame {
+      width: 100%;
+      margin: 8px 0 56px;
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      background: #0f0e0c;
+      box-shadow: 0 24px 60px rgb(0 0 0 / 40%);
+      overflow: hidden;
+    }
+
+    .screenshot-frame img {
+      display: block;
+      width: 100%;
+      height: auto;
+    }
+
+    .features {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 16px;
+      padding-bottom: 56px;
+    }
+
+    .feature-card {
+      padding: 20px;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      background: var(--panel);
+    }
+
+    .feature-card h3 {
+      margin: 0 0 8px;
+      font-size: 14.5px;
+      font-weight: 650;
+      letter-spacing: -0.01em;
+    }
+
+    .feature-card p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 13.5px;
+      line-height: 1.6;
+    }
+
+    .stack {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      padding-bottom: 56px;
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      height: 30px;
+      padding: 0 13px;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      color: var(--faint);
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    footer {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+      padding: 28px 0 40px;
+      color: var(--faint);
+      font-size: 12.5px;
+      text-align: center;
+    }
+
+    footer a {
+      color: var(--muted);
+      text-decoration: underline;
+      text-decoration-color: var(--border-strong);
+      text-underline-offset: 3px;
+    }
+
+    footer a:hover {
+      color: var(--text-soft);
+    }
+
+    @media (max-width: 560px) {
+      header {
+        padding: 20px 0;
+      }
+
+      .hero {
+        padding: 36px 0 36px;
+      }
+
+      .button {
+        width: 100%;
+        justify-content: center;
+      }
+
+      .hero-actions {
+        width: 100%;
+        flex-direction: column;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div class="brand" aria-label="Tapedeck">
+        <svg class="brand__mark" width="34" height="34" viewBox="0 0 1024 1024" aria-hidden="true">
+          <defs>
+            <linearGradient id="ac" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" stop-color="#b6acf8" />
+              <stop offset="1" stop-color="#7263e7" />
+            </linearGradient>
+          </defs>
+          <circle cx="512" cy="512" r="320" fill="none" stroke="url(#ac)" stroke-width="44" />
+          <circle cx="512" cy="512" r="228" fill="none" stroke="url(#ac)" stroke-width="26" stroke-dasharray="34 58" />
+          <circle cx="512" cy="512" r="148" fill="url(#ac)" />
+          <path d="M474 442 L600 512 L474 582 Z" fill="#14110e" stroke="#14110e" stroke-width="40" stroke-linejoin="round" />
+        </svg>
+        <span>Tapedeck</span>
+      </div>
+      <nav class="nav-links">
+        <a class="nav-link" href="https://github.com/MelodicDevelopment/tapedeck#readme">Docs</a>
+        <a class="nav-link" href="https://github.com/MelodicDevelopment/tapedeck">GitHub</a>
+      </nav>
+    </header>
+
+    <section class="hero">
+      <p class="eyebrow">Desktop app · Free &amp; open source</p>
+      <h1>Your queue, less noise.</h1>
+      <p>
+        Tapedeck turns any YouTube channel or playlist into a focused, distraction-free
+        queue — no comments, no recommendations, no rabbit holes.
+      </p>
+      <div class="hero-actions">
+        <a class="button button--primary" href="https://github.com/MelodicDevelopment/tapedeck/releases/latest">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M12 3v13" />
+            <path d="m7 11 5 5 5-5" />
+            <path d="M5 21h14" />
+          </svg>
+          Download latest release
+        </a>
+        <a class="button button--secondary" href="https://github.com/MelodicDevelopment/tapedeck">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+            <path d="M12 .5C5.65.5.5 5.65.5 12c0 5.08 3.29 9.39 7.86 10.91.58.11.79-.25.79-.56 0-.27-.01-1.17-.02-2.12-3.2.7-3.88-1.36-3.88-1.36-.52-1.33-1.28-1.68-1.28-1.68-1.04-.72.08-.7.08-.7 1.15.08 1.76 1.18 1.76 1.18 1.03 1.76 2.7 1.25 3.36.96.1-.75.4-1.25.73-1.54-2.56-.29-5.26-1.28-5.26-5.71 0-1.26.45-2.29 1.18-3.09-.12-.29-.51-1.46.11-3.05 0 0 .97-.31 3.18 1.18a11.1 11.1 0 0 1 5.8 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.24 2.76.12 3.05.74.8 1.18 1.83 1.18 3.09 0 4.44-2.71 5.42-5.29 5.7.42.36.78 1.07.78 2.16 0 1.56-.01 2.82-.01 3.2 0 .31.2.68.8.56A11.51 11.51 0 0 0 23.5 12C23.5 5.65 18.35.5 12 .5Z" />
+          </svg>
+          View on GitHub
+        </a>
+      </div>
+    </section>
+
+    <div class="screenshot-frame">
+      <img src="screenshot.png" alt="Tapedeck welcome screen with saved channels and mixtapes" loading="lazy" />
+    </div>
+
+    <section class="features">
+      <div class="feature-card">
+        <h3>Paste a URL, get a queue</h3>
+        <p>Channels, playlists, and YouTube Music links all resolve into a clean video queue.</p>
+      </div>
+      <div class="feature-card">
+        <h3>Mixtapes</h3>
+        <p>Build your own playlists from videos across any channels — they live entirely on your machine.</p>
+      </div>
+      <div class="feature-card">
+        <h3>Real player controls</h3>
+        <p>Shuffle, repeat, autoplay, and a queue that follows the playing track.</p>
+      </div>
+      <div class="feature-card">
+        <h3>OS integration</h3>
+        <p>Hardware media keys, Now Playing metadata, and background playback when the window is closed.</p>
+      </div>
+      <div class="feature-card">
+        <h3>Library</h3>
+        <p>Every source you load is saved for one-click replay.</p>
+      </div>
+      <div class="feature-card">
+        <h3>Privacy-respecting</h3>
+        <p>No Tapedeck account, no telemetry, no database. Your Google login only makes read-only YouTube API calls.</p>
+      </div>
+    </section>
+
+    <div class="stack">
+      <span class="pill">Tauri 2</span>
+      <span class="pill">React</span>
+      <span class="pill">Rust</span>
+      <span class="pill">MIT licensed</span>
+    </div>
+
+    <footer>
+      <p>Videos always play through the visible, official YouTube embedded player — Tapedeck never downloads or extracts anything.</p>
+      <p><a href="https://github.com/MelodicDevelopment/tapedeck">github.com/MelodicDevelopment/tapedeck</a></p>
+      <p><a href="/privacy.html">Privacy Policy</a> · <a href="/terms.html">Terms of Service</a></p>
+    </footer>
+  </div>
+</body>
+</html>
