@@ -15,11 +15,11 @@ jobs:
       matrix:
         include:
           - platform: macos-latest
-            args: --target universal-apple-darwin
+            args: --target universal-apple-darwin --verbose
           - platform: ubuntu-22.04
-            args: ""
+            args: --verbose
           - platform: windows-latest
-            args: ""
+            args: --verbose
     runs-on: ${{ matrix.platform }}
     steps:
       - uses: actions/checkout@v4
