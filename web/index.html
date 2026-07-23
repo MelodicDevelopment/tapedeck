@@ -7,7 +7,7 @@
 		<title>Tapedeck</title>
 		<meta
 			name="description"
-			content="Tapedeck is a lightweight desktop player that turns any YouTube channel or playlist into a focused, distraction-free queue."
+			content="Tapedeck is a free, open-source desktop application that turns YouTube channels and playlists into a focused, distraction-free playback queue."
 		/>
 		<style>
 			@import url('https://fonts.googleapis.com/css2?family=Albert+Sans:wght@400;500;600;700&display=swap');
@@ -140,9 +140,18 @@
 			.hero h1 {
 				max-width: 640px;
 				margin: 0;
-				font-size: clamp(2.1rem, 5vw, 3.1rem);
+				font-size: clamp(2.4rem, 6vw, 3.6rem);
 				line-height: 1.1;
 				letter-spacing: -0.035em;
+			}
+
+			.hero .tagline {
+				max-width: 640px;
+				margin: 0;
+				color: var(--text-soft);
+				font-size: clamp(1.1rem, 2.6vw, 1.5rem);
+				font-weight: 600;
+				letter-spacing: -0.01em;
 			}
 
 			.hero p {
@@ -224,6 +233,28 @@
 				display: block;
 				width: 100%;
 				height: auto;
+			}
+
+			.about {
+				padding-bottom: 56px;
+			}
+
+			.about h2 {
+				margin: 0 0 12px;
+				font-size: 20px;
+				font-weight: 650;
+				letter-spacing: -0.02em;
+				text-align: center;
+			}
+
+			.about p {
+				max-width: 640px;
+				margin: 0 auto;
+				color: var(--muted);
+				font-size: 14.5px;
+				line-height: 1.7;
+				text-align: center;
+				text-wrap: balance;
 			}
 
 			.features {
@@ -473,11 +504,15 @@
 
 			<section class="hero">
 				<p class="eyebrow">Desktop app · Free &amp; open source</p>
-				<h1>Your queue, less noise.</h1>
+				<h1>Tapedeck</h1>
+				<p class="tagline">Your queue, less noise.</p>
 				<p>
-					Tapedeck turns any YouTube channel or playlist into a
-					focused, distraction-free queue — no comments, no
-					recommendations, no rabbit holes.
+					Tapedeck is a free, open-source desktop application that
+					turns YouTube channels, playlists, and YouTube Music links
+					into a focused, distraction-free playback queue. Create
+					mixtapes, save your library, and optionally synchronize it
+					across devices using your private Google Drive app-data
+					folder.
 				</p>
 				<div class="hero-actions">
 					<a
@@ -525,6 +560,19 @@
 				/>
 			</div>
 
+			<section class="about">
+				<h2>What is Tapedeck?</h2>
+				<p>
+					Tapedeck is a lightweight desktop application designed for
+					people who use YouTube as a music player. Instead of
+					browsing YouTube with comments, recommendations, and
+					endless distractions, Tapedeck lets you create a clean
+					playback queue, organize your favorite sources into a
+					personal library, build custom mixtapes, and control
+					playback like a native desktop music player.
+				</p>
+			</section>
+
 			<section class="features">
 				<div class="feature-card">
 					<h3>Paste a URL, get a queue</h3>
@@ -536,8 +584,10 @@
 				<div class="feature-card">
 					<h3>Mixtapes</h3>
 					<p>
-						Build your own playlists from videos across any channels
-						— they live entirely on your machine.
+						Build playlists from videos across any channels.
+						Mixtapes are stored locally and can optionally
+						synchronize across your devices using Tapedeck's
+						private Google Drive app-data folder.
 					</p>
 				</div>
 				<div class="feature-card">
@@ -561,18 +611,23 @@
 				<div class="feature-card">
 					<h3>Privacy-respecting</h3>
 					<p>
-						No Tapedeck account, no telemetry, no ad tracking. See
-						exactly what your Google sign-in accesses
-						<a href="#permissions">below</a>.
+						No separate Tapedeck account, no telemetry, and no
+						advertising. Google Sign-In is used only to identify
+						your Google account and optionally synchronize your
+						Tapedeck library — see
+						<a href="#permissions">exactly how, below</a>.
 					</p>
 				</div>
 			</section>
 
 			<section class="permissions" id="permissions">
-				<h2>Google permissions</h2>
+				<h2>How Tapedeck Uses Google</h2>
 				<p class="permissions__intro">
-					Tapedeck asks you to sign in with Google for two things.
-					Here's exactly what that access does and doesn't cover.
+					Google Sign-In is used to identify your selected Google
+					account. Tapedeck requests only the permissions required to
+					load the YouTube content you choose and, if enabled,
+					synchronize your Tapedeck library using your private Google
+					Drive app-data folder.
 				</p>
 				<div class="permissions__grid">
 					<div class="permissions__col">
