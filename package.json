@@ -7,6 +7,7 @@
     "dev": "concurrently --kill-others-on-fail --names api,web \"npm:dev:server\" \"npm:dev:client\"",
     "dev:client": "vite",
     "dev:server": "node --watch server/index.js",
+    "tauri": "tauri",
     "desktop": "tauri dev",
     "desktop:build": "tauri build",
     "desktop:icon": "tauri icon src-tauri/icons/app-icon.svg && npm run desktop:icon:macos",
