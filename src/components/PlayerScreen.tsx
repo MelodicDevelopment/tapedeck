@@ -5,20 +5,23 @@ import {
   HelpCircle,
   ListMusic,
   ListPlus,
+  LoaderCircle,
   Music,
   Target,
   Video,
   X,
   Youtube,
 } from 'lucide-react'
+import { listen } from '@tauri-apps/api/event'
 import { useCallback, useEffect, useRef, useState } from 'react'
-import type { AuthStatus } from '../api/auth'
+import { isDesktopApp, type AuthStatus } from '../api/auth'
 import {
   MediaControlEvent,
   onMediaControl,
   updateMediaMetadata,
   updateMediaPlayback,
 } from '../api/media'
+import { resolveVideo } from '../api/youtube'
 import { formatTime, Playlist, thumbnailUrl, Track } from '../data/mockPlaylist'
 import type { Mixtape, PlaybackSettings, SavedSource } from '../lib/library'
 import {
@@ -104,22 +107,41 @@ export function PlayerScreen({
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null)
   const [shortcutsOpen, setShortcutsOpen] = useState(false)
   const [mode, setMode] = useState<'video' | 'audio'>('video')
+  // Set when the user clicks a related video inside the embedded YouTube
+  // player itself (its "More videos" overlay, end screens) — plays inline
+  // without disturbing the actual queue position, which resumes on return.
+  const [externalVideo, setExternalVideo] = useState<Track | null>(null)
+  const [externalVideoLoading, setExternalVideoLoading] = useState(false)
   const shuffleOrderRef = useRef<number[]>([])
   const trackListRef = useRef<HTMLOListElement | null>(null)
+  const savedQueueStateRef = useRef<{ elapsed: number; playing: boolean } | null>(null)
 
-  const track = playlist.tracks[currentIndex]
+  const track = externalVideo ?? playlist.tracks[currentIndex]
   const unavailable = Boolean(track.unavailable || failedVideoIds.has(track.id))
   // Nothing to show in audio mode when the track can't play at all — fall
   // back to the video frame's own unavailable-state message.
   const showAudioMode = mode === 'audio' && !unavailable
+  const watchUrl = `https://www.youtube.com/watch?v=${track.id}`
+  const channelUrl = playlist.sourceUrl.startsWith('http') ? playlist.sourceUrl : null
 
   const selectTrack = useCallback((index: number) => {
     const nextTrack = playlist.tracks[index]
+    setExternalVideo(null)
+    savedQueueStateRef.current = null
     setCurrentIndex(index)
     setElapsed(0)
     setDuration(nextTrack.duration)
     setPlaying(!nextTrack.unavailable)
   }, [playlist.tracks])
+
+  function returnToQueue() {
+    const saved = savedQueueStateRef.current
+    savedQueueStateRef.current = null
+    setExternalVideo(null)
+    setElapsed(saved?.elapsed ?? 0)
+    setDuration(playlist.tracks[currentIndex].duration)
+    setPlaying(saved?.playing ?? true)
+  }
 
   const isPlayable = useCallback(
     (index: number) => {
@@ -201,10 +223,46 @@ export function PlayerScreen({
   mediaControlRef.current = handleMediaControl
   const elapsedRef = useRef(elapsed)
   elapsedRef.current = elapsed
+  const playingRef = useRef(playing)
+  playingRef.current = playing
   const currentIndexRef = useRef(currentIndex)
   currentIndexRef.current = currentIndex
-  const currentTrackIdRef = useRef(track?.id)
-  currentTrackIdRef.current = track?.id
+  // The real queue track's id — deliberately NOT `track.id`, which reflects
+  // whatever's on screen (including an external video override); playlist
+  // syncing and progress persistence must always track the actual queue.
+  const currentTrackIdRef = useRef(playlist.tracks[currentIndex]?.id)
+  currentTrackIdRef.current = playlist.tracks[currentIndex]?.id
+
+  // A related-video click inside the embedded YouTube player itself (its
+  // "More videos" overlay, end screens) reaches here via a Tauri event —
+  // see the `on_new_window` hook in src-tauri/src/lib.rs, which resolves
+  // the destination URL to a video id instead of just opening a browser tab.
+  useEffect(() => {
+    if (!isDesktopApp()) return
+    let active = true
+    const unlisten = listen<string>('tapedeck://play-external-video', (event) => {
+      const videoId = event.payload
+      if (!active) return
+      savedQueueStateRef.current ??= { elapsed: elapsedRef.current, playing: playingRef.current }
+      setExternalVideoLoading(true)
+      resolveVideo(videoId)
+        .then((resolved) => {
+          if (!active) return
+          setExternalVideo(resolved)
+          setElapsed(0)
+          setDuration(resolved.duration)
+          setPlaying(!resolved.unavailable)
+        })
+        .catch(() => {})
+        .finally(() => {
+          if (active) setExternalVideoLoading(false)
+        })
+    })
+    return () => {
+      active = false
+      unlisten.then((fn) => fn())
+    }
+  }, [])
 
   // Mixtape edits replace the playlist prop mid-playback; keep following the
   // same track when it moves, and fall back gracefully when it was removed.
@@ -511,9 +569,35 @@ export function PlayerScreen({
                   </span>
                 </div>
                 <div className="audio-mode__copy">
-                  <p className="track-details__label">NOW PLAYING</p>
-                  <h1>{track.title}</h1>
-                  <p>{track.artist} <span aria-hidden="true">·</span> {formatTime(track.duration)}</p>
+                  {externalVideo ? (
+                    <button type="button" className="track-details__back-to-queue" onClick={returnToQueue}>
+                      <ArrowLeft aria-hidden="true" /> Back to queue
+                    </button>
+                  ) : (
+                    <p className="track-details__label">
+                      NOW PLAYING
+                      {externalVideoLoading && <LoaderCircle className="track-details__loading spin" aria-hidden="true" />}
+                    </p>
+                  )}
+                  <h1>
+                    {unavailable ? (
+                      track.title
+                    ) : (
+                      <a href={watchUrl} target="_blank" rel="noreferrer">
+                        {track.title}
+                      </a>
+                    )}
+                  </h1>
+                  <p>
+                    {channelUrl ? (
+                      <a href={channelUrl} target="_blank" rel="noreferrer">
+                        {track.artist}
+                      </a>
+                    ) : (
+                      track.artist
+                    )}{' '}
+                    <span aria-hidden="true">·</span> {formatTime(track.duration)}
+                  </p>
                   <button type="button" className="audio-mode__show-video" onClick={() => setMode('video')}>
                     <img src={thumbnailUrl(track.id)} alt="" /> Show video
                   </button>
@@ -555,9 +639,35 @@ export function PlayerScreen({
             {!showAudioMode && (
               <div className="track-details">
                 <div>
-                  <p className="track-details__label">NOW PLAYING</p>
-                  <h1>{track.title}</h1>
-                  <p>{track.artist} <span aria-hidden="true">·</span> YouTube video</p>
+                  {externalVideo ? (
+                    <button type="button" className="track-details__back-to-queue" onClick={returnToQueue}>
+                      <ArrowLeft aria-hidden="true" /> Back to queue
+                    </button>
+                  ) : (
+                    <p className="track-details__label">
+                      NOW PLAYING
+                      {externalVideoLoading && <LoaderCircle className="track-details__loading spin" aria-hidden="true" />}
+                    </p>
+                  )}
+                  <h1>
+                    {unavailable ? (
+                      track.title
+                    ) : (
+                      <a href={watchUrl} target="_blank" rel="noreferrer">
+                        {track.title}
+                      </a>
+                    )}
+                  </h1>
+                  <p className="track-details__meta">
+                    {channelUrl ? (
+                      <a href={channelUrl} target="_blank" rel="noreferrer">
+                        {track.artist}
+                      </a>
+                    ) : (
+                      track.artist
+                    )}{' '}
+                    <span aria-hidden="true">·</span> YouTube video
+                  </p>
                 </div>
                 <button type="button" className="track-details__jump" onClick={() => scrollToCurrent()}>
                   Track {currentIndex + 1} of {playlist.tracks.length}

@@ -31,11 +31,18 @@ export type PlaybackSettings = {
   volume: number
 }
 
+/** A deletion record so sync merges know "explicitly removed" apart from "never seen". */
+export type Tombstone = { id: string; deletedAt: string }
+
 export type Library = {
   version: 1
   sources: SavedSource[]
   mixtapes: Mixtape[]
   playbackSettings: PlaybackSettings
+  /** Tombstones keyed by SavedSource.url. */
+  deletedSourceUrls: Tombstone[]
+  /** Tombstones keyed by Mixtape.id. */
+  deletedMixtapeIds: Tombstone[]
 }
 
 const MAX_SOURCES = 30
@@ -48,7 +55,19 @@ export function emptyLibrary(): Library {
     sources: [],
     mixtapes: [],
     playbackSettings: { shuffle: false, repeatMode: 'off', volume: DEFAULT_VOLUME },
+    deletedSourceUrls: [],
+    deletedMixtapeIds: [],
   }
+}
+
+/** Keeps the freshest tombstone per id when the same deletion is recorded twice. */
+function mergeTombstones(a: Tombstone[], b: Tombstone[]): Tombstone[] {
+  const byId = new Map(a.map((tombstone) => [tombstone.id, tombstone]))
+  for (const tombstone of b) {
+    const existing = byId.get(tombstone.id)
+    if (!existing || tombstone.deletedAt > existing.deletedAt) byId.set(tombstone.id, tombstone)
+  }
+  return [...byId.values()]
 }
 
 export function generateId(): string {
@@ -62,11 +81,22 @@ export function generateId(): string {
 export function normalizeLibrary(value: unknown): Library {
   const library = emptyLibrary()
   if (typeof value !== 'object' || value === null) return library
-  const candidate = value as { sources?: unknown; mixtapes?: unknown; playbackSettings?: unknown }
+  const candidate = value as {
+    sources?: unknown
+    mixtapes?: unknown
+    playbackSettings?: unknown
+    deletedSourceUrls?: unknown
+    deletedMixtapeIds?: unknown
+  }
 
   const isTrack = (track: unknown): track is Track => {
     const t = track as Track
     return Boolean(t && typeof t.id === 'string' && typeof t.title === 'string')
+  }
+
+  const isTombstone = (tombstone: unknown): tombstone is Tombstone => {
+    const t = tombstone as Tombstone
+    return Boolean(t && typeof t.id === 'string' && t.id && typeof t.deletedAt === 'string')
   }
 
   if (Array.isArray(candidate.sources)) {
@@ -113,6 +143,13 @@ export function normalizeLibrary(value: unknown): Library {
       }))
   }
 
+  if (Array.isArray(candidate.deletedSourceUrls)) {
+    library.deletedSourceUrls = candidate.deletedSourceUrls.filter(isTombstone)
+  }
+  if (Array.isArray(candidate.deletedMixtapeIds)) {
+    library.deletedMixtapeIds = candidate.deletedMixtapeIds.filter(isTombstone)
+  }
+
   const settings = candidate.playbackSettings as { shuffle?: unknown; repeatMode?: unknown; volume?: unknown } | undefined
   if (settings && typeof settings === 'object') {
     library.playbackSettings = {
@@ -152,7 +189,13 @@ export function upsertSource(
 }
 
 export function removeSource(library: Library, url: string): Library {
-  return { ...library, sources: library.sources.filter((source) => source.url !== url) }
+  return {
+    ...library,
+    sources: library.sources.filter((source) => source.url !== url),
+    deletedSourceUrls: mergeTombstones(library.deletedSourceUrls, [
+      { id: url, deletedAt: new Date().toISOString() },
+    ]),
+  }
 }
 
 export function createMixtape(library: Library, name: string, firstTrack: Track): Library {
@@ -186,7 +229,13 @@ export function toggleMixtapeTrack(library: Library, mixtapeId: string, track: T
 }
 
 export function deleteMixtape(library: Library, mixtapeId: string): Library {
-  return { ...library, mixtapes: library.mixtapes.filter((mixtape) => mixtape.id !== mixtapeId) }
+  return {
+    ...library,
+    mixtapes: library.mixtapes.filter((mixtape) => mixtape.id !== mixtapeId),
+    deletedMixtapeIds: mergeTombstones(library.deletedMixtapeIds, [
+      { id: mixtapeId, deletedAt: new Date().toISOString() },
+    ]),
+  }
 }
 
 /** Move a track within a mixtape from one position to another. */
@@ -279,6 +328,11 @@ function freshestTimestamp(...timestamps: (string | undefined)[]): string {
  * `normalizeLibrary` on the incoming value first.
  */
 export function mergeLibrary(current: Library, incoming: Library): Library {
+  const deletedSourceUrls = mergeTombstones(current.deletedSourceUrls, incoming.deletedSourceUrls)
+  const deletedMixtapeIds = mergeTombstones(current.deletedMixtapeIds, incoming.deletedMixtapeIds)
+  const deletedAt = (tombstones: Tombstone[], id: string) =>
+    tombstones.find((tombstone) => tombstone.id === id)?.deletedAt
+
   const sourcesByUrl = new Map(current.sources.map((source) => [source.url, source]))
   for (const source of incoming.sources) {
     const existing = sourcesByUrl.get(source.url)
@@ -291,6 +345,13 @@ export function mergeLibrary(current: Library, incoming: Library): Library {
     }
   }
   const sources = [...sourcesByUrl.values()]
+    // A tombstone at least as fresh as the entry means it was explicitly
+    // deleted after (or as part of) that write, so drop it from the merge
+    // instead of letting a stale remote copy resurrect it.
+    .filter((source) => {
+      const tombstone = deletedAt(deletedSourceUrls, source.url)
+      return !tombstone || tombstone < freshestTimestamp(source.savedAt, source.lastPlayedAt)
+    })
     .sort((a, b) => {
       const freshA = freshestTimestamp(a.savedAt, a.lastPlayedAt)
       const freshB = freshestTimestamp(b.savedAt, b.lastPlayedAt)
@@ -309,8 +370,12 @@ export function mergeLibrary(current: Library, incoming: Library): Library {
       mixtapesById.set(mixtape.id, mixtape)
     }
   }
+  const mixtapes = [...mixtapesById.values()].filter((mixtape) => {
+    const tombstone = deletedAt(deletedMixtapeIds, mixtape.id)
+    return !tombstone || tombstone < freshestTimestamp(mixtape.updatedAt, mixtape.lastPlayedAt)
+  })
 
-  return { ...current, sources, mixtapes: [...mixtapesById.values()] }
+  return { ...current, sources, mixtapes, deletedSourceUrls, deletedMixtapeIds }
 }
 
 export function mixtapeToPlaylist(mixtape: Mixtape): Playlist {

@@ -1,5 +1,7 @@
+import { getVersion } from '@tauri-apps/api/app'
 import { invoke } from '@tauri-apps/api/core'
-import { fireEvent, render, screen } from '@testing-library/react'
+import { listen } from '@tauri-apps/api/event'
+import { act, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import App from './App'
 
@@ -10,6 +12,13 @@ vi.mock('@tauri-apps/api/core', () => ({
 
 vi.mock('@tauri-apps/api/event', () => ({
   listen: vi.fn().mockResolvedValue(() => {}),
+}))
+
+// getVersion() imports `invoke` via a relative path inside the package,
+// which the '@tauri-apps/api/core' mock above doesn't reliably intercept —
+// mock this module directly instead.
+vi.mock('@tauri-apps/api/app', () => ({
+  getVersion: vi.fn().mockResolvedValue('0.2.1'),
 }))
 
 const apiPlaylist = {
@@ -40,6 +49,7 @@ describe('Tapedeck', () => {
   beforeEach(() => {
     window.localStorage.clear()
     vi.mocked(invoke).mockReset()
+    vi.mocked(listen).mockClear()
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(
       new Response(JSON.stringify(apiPlaylist), { status: 200, headers: { 'content-type': 'application/json' } }),
     ))
@@ -124,6 +134,120 @@ describe('Tapedeck', () => {
 
     expect(screen.getByRole('heading', { name: 'Track B' })).toBeInTheDocument()
     expect(screen.getByLabelText('Now playing')).toBeInTheDocument()
+  })
+
+  it('links the now-playing title and artist to YouTube instead of adding separate link rows', async () => {
+    installYouTubePlayerThatReplacesItsMountNode()
+    render(<App />)
+
+    fireEvent.change(screen.getByLabelText('YouTube channel or playlist URL'), {
+      target: { value: 'https://www.youtube.com/@lofihiphopmusic' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Load' }))
+    await screen.findByRole('heading', { name: 'Fetched song' })
+
+    expect(screen.getByRole('link', { name: 'Fetched song' })).toHaveAttribute(
+      'href',
+      'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+    )
+    expect(screen.getByRole('link', { name: 'Fetched artist' })).toHaveAttribute('href', apiPlaylist.sourceUrl)
+  })
+
+  it('does not link an unavailable video\'s title to YouTube', async () => {
+    installYouTubePlayerThatReplacesItsMountNode()
+    render(<App />)
+
+    fireEvent.change(screen.getByLabelText('YouTube channel or playlist URL'), {
+      target: { value: 'https://www.youtube.com/@lofihiphopmusic' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Load' }))
+    await screen.findByRole('heading', { name: 'Fetched song' })
+
+    fireEvent.click(screen.getByRole('button', { name: /Private song/ }))
+    expect(screen.getByRole('status')).toHaveTextContent('This video is unavailable')
+    expect(screen.queryByRole('link', { name: 'Private song' })).not.toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Private song' })).toBeInTheDocument()
+  })
+
+  describe('related videos clicked inside the embedded player', () => {
+    function mockDesktopInvokeForPlayback() {
+      vi.mocked(invoke).mockImplementation(async (command) => {
+        if (command === 'google_auth_status') {
+          return { configured: true, authenticated: true, user: { name: 'Ada Listener', email: 'ada@example.com' } }
+        }
+        if (command === 'load_library') return null
+        if (command === 'save_library') return undefined
+        if (command === 'drive_download_library') return null
+        if (command === 'drive_upload_library') return undefined
+        if (command === 'drive_touch_device') return []
+        if (command === 'resolve_youtube_source') return apiPlaylist
+        if (command === 'resolve_video') {
+          return { id: 'related-123', title: 'Related video', artist: 'Some Other Channel', duration: 180, unavailable: false }
+        }
+        throw new Error(`Unexpected command: ${command}`)
+      })
+    }
+
+    async function triggerExternalVideo(videoId: string) {
+      const registration = vi
+        .mocked(listen)
+        .mock.calls.find(([eventName]) => eventName === 'tapedeck://play-external-video')
+      expect(registration).toBeTruthy()
+      const handler = registration?.[1] as (event: { payload: string }) => void
+      await act(async () => {
+        handler({ payload: videoId })
+        await Promise.resolve()
+        await Promise.resolve()
+      })
+    }
+
+    it('plays inline instead of leaving the app, and can return to the queue', async () => {
+      vi.stubGlobal('isTauri', true)
+      installYouTubePlayerThatReplacesItsMountNode()
+      mockDesktopInvokeForPlayback()
+
+      render(<App />)
+      fireEvent.change(await screen.findByLabelText('YouTube channel or playlist URL'), {
+        target: { value: 'https://www.youtube.com/@lofihiphopmusic' },
+      })
+      fireEvent.click(screen.getByRole('button', { name: 'Load' }))
+      await screen.findByRole('heading', { name: 'Fetched song' })
+
+      await triggerExternalVideo('related-123')
+
+      expect(await screen.findByRole('heading', { name: 'Related video' })).toBeInTheDocument()
+      expect(screen.getByRole('link', { name: 'Related video' })).toHaveAttribute(
+        'href',
+        'https://www.youtube.com/watch?v=related-123',
+      )
+      const backButton = screen.getByRole('button', { name: /Back to queue/ })
+
+      fireEvent.click(backButton)
+      expect(await screen.findByRole('heading', { name: 'Fetched song' })).toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: /Back to queue/ })).not.toBeInTheDocument()
+    })
+
+    it('clears the external video override when the user picks a different queue track', async () => {
+      vi.stubGlobal('isTauri', true)
+      installYouTubePlayerThatReplacesItsMountNode()
+      mockDesktopInvokeForPlayback()
+
+      render(<App />)
+      fireEvent.change(await screen.findByLabelText('YouTube channel or playlist URL'), {
+        target: { value: 'https://www.youtube.com/@lofihiphopmusic' },
+      })
+      fireEvent.click(screen.getByRole('button', { name: 'Load' }))
+      await screen.findByRole('heading', { name: 'Fetched song' })
+
+      await triggerExternalVideo('related-123')
+      await screen.findByRole('heading', { name: 'Related video' })
+
+      fireEvent.click(screen.getByRole('button', { name: /Private song/ }))
+
+      expect(screen.queryByRole('heading', { name: 'Related video' })).not.toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: /Back to queue/ })).not.toBeInTheDocument()
+      expect(screen.getByRole('status')).toHaveTextContent('This video is unavailable')
+    })
   })
 
   it('switches to audio mode without unmounting the video player', async () => {
@@ -329,6 +453,68 @@ describe('Tapedeck', () => {
     expect(screen.getByText('MacBook Pro — this device')).toBeInTheDocument()
     expect(screen.getByText('Mac mini')).toBeInTheDocument()
     expect(screen.getByText('Active now')).toBeInTheDocument()
+  })
+
+  describe('update check', () => {
+    function mockDesktopInvoke() {
+      vi.mocked(invoke).mockImplementation(async (command) => {
+        if (command === 'google_auth_status') {
+          return { configured: true, authenticated: true, user: { name: 'Ada Listener', email: 'ada@example.com' } }
+        }
+        if (command === 'load_library') return null
+        if (command === 'save_library') return undefined
+        if (command === 'drive_download_library') return null
+        if (command === 'drive_upload_library') return undefined
+        if (command === 'drive_touch_device') return []
+        throw new Error(`Unexpected command: ${command}`)
+      })
+    }
+
+    it('shows an update banner when a newer desktop release is published, and can be dismissed', async () => {
+      vi.stubGlobal('isTauri', true)
+      mockDesktopInvoke()
+      vi.mocked(getVersion).mockResolvedValue('0.2.1')
+      vi.mocked(fetch).mockResolvedValue(new Response(JSON.stringify({
+        tag_name: 'v0.2.2',
+        html_url: 'https://github.com/MelodicDevelopment/tapedeck/releases/tag/v0.2.2',
+      }), { status: 200, headers: { 'content-type': 'application/json' } }))
+
+      render(<App />)
+
+      expect(await screen.findByText(/Tapedeck 0.2.2 is available/)).toBeInTheDocument()
+      const link = screen.getByRole('link', { name: 'Get the update' })
+      expect(link).toHaveAttribute('href', 'https://github.com/MelodicDevelopment/tapedeck/releases/tag/v0.2.2')
+
+      fireEvent.click(screen.getByRole('button', { name: 'Dismiss update notice' }))
+      expect(screen.queryByText(/Tapedeck 0.2.2 is available/)).not.toBeInTheDocument()
+    })
+
+    it('does not show an update banner when already on the latest version', async () => {
+      vi.stubGlobal('isTauri', true)
+      mockDesktopInvoke()
+      vi.mocked(getVersion).mockResolvedValue('0.2.2')
+      vi.mocked(fetch).mockResolvedValue(new Response(JSON.stringify({
+        tag_name: 'v0.2.2',
+        html_url: 'https://github.com/MelodicDevelopment/tapedeck/releases/tag/v0.2.2',
+      }), { status: 200, headers: { 'content-type': 'application/json' } }))
+
+      render(<App />)
+
+      await screen.findByText('Ada Listener')
+      expect(screen.queryByText(/is available/)).not.toBeInTheDocument()
+    })
+
+    it('does not show an update banner in the browser (non-desktop) build', async () => {
+      vi.mocked(fetch).mockResolvedValue(new Response(JSON.stringify({
+        tag_name: 'v9.9.9',
+        html_url: 'https://github.com/MelodicDevelopment/tapedeck/releases/tag/v9.9.9',
+      }), { status: 200, headers: { 'content-type': 'application/json' } }))
+
+      render(<App />)
+
+      await screen.findByLabelText('YouTube channel or playlist URL')
+      expect(screen.queryByText(/is available/)).not.toBeInTheDocument()
+    })
   })
 
   describe('mixtape deletion', () => {

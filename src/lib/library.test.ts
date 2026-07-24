@@ -199,6 +199,54 @@ describe('mergeLibrary', () => {
     const merged = mergeLibrary(updated, staleIncoming)
     expect(merged.mixtapes[0].tracks.map((entry) => entry.id)).toEqual(['a', 'b'])
   })
+
+  it('does not resurrect a deleted mixtape when the remote copy predates the deletion', () => {
+    // Simulates a sync round-trip right after deleting: "incoming" is the
+    // stale Drive snapshot from before the deletion was ever uploaded.
+    const withMixtape = createMixtape(emptyLibrary(), 'Mix', track('a'))
+    const staleRemote = withMixtape
+    const afterDelete = deleteMixtape(withMixtape, withMixtape.mixtapes[0].id)
+
+    const merged = mergeLibrary(afterDelete, staleRemote)
+    expect(merged.mixtapes).toEqual([])
+  })
+
+  it('does not resurrect a removed source when the remote copy predates the removal', () => {
+    const withSource = upsertSource(emptyLibrary(), source('https://youtube.com/@a'))
+    const staleRemote = withSource
+    const afterRemove = removeSource(withSource, 'https://youtube.com/@a')
+
+    const merged = mergeLibrary(afterRemove, staleRemote)
+    expect(merged.sources).toEqual([])
+  })
+
+  it('lets a genuinely newer edit on another device undo an older deletion', () => {
+    const withMixtape = createMixtape(emptyLibrary(), 'Mix', track('a'))
+    const id = withMixtape.mixtapes[0].id
+    const deletedHere = deleteMixtape(withMixtape, id)
+
+    // Another device edited the mixtape (bumping updatedAt) after this
+    // device's deletion tombstone was recorded.
+    const editedElsewhere = toggleMixtapeTrack(withMixtape, id, track('b'))
+    const laterEdit = {
+      ...editedElsewhere,
+      mixtapes: [{ ...editedElsewhere.mixtapes[0], updatedAt: '2099-01-01T00:00:00.000Z' }],
+    }
+
+    const merged = mergeLibrary(deletedHere, laterEdit)
+    expect(merged.mixtapes.map((entry) => entry.id)).toEqual([id])
+  })
+
+  it('propagates and dedupes tombstones from both sides', () => {
+    const withMixtape = createMixtape(emptyLibrary(), 'Mix', track('a'))
+    const id = withMixtape.mixtapes[0].id
+    const deletedHere = deleteMixtape(withMixtape, id)
+    const deletedThere = deleteMixtape(withMixtape, id)
+
+    const merged = mergeLibrary(deletedHere, deletedThere)
+    expect(merged.deletedMixtapeIds).toHaveLength(1)
+    expect(merged.deletedMixtapeIds[0].id).toBe(id)
+  })
 })
 
 describe('normalizeLibrary', () => {

@@ -41,6 +41,7 @@ fn main() {
             "sign_in_with_google",
             "sign_out_google",
             "resolve_youtube_source",
+            "resolve_video",
             "media_set_metadata",
             "media_set_playback",
             "load_library",

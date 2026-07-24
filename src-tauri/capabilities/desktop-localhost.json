@@ -12,6 +12,7 @@
     "allow-sign-in-with-google",
     "allow-sign-out-google",
     "allow-resolve-youtube-source",
+    "allow-resolve-video",
     "allow-media-set-metadata",
     "allow-media-set-playback",
     "allow-load-library",

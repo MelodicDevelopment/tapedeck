@@ -24,7 +24,9 @@ Videos always play through the visible, official YouTube embedded player. Tapede
 
 ## Installation
 
-There are no prebuilt releases yet — you build Tapedeck yourself (about two minutes once the toolchain is installed). Prebuilt, signed releases are on the roadmap.
+Signed, notarized builds for macOS, Windows, and Linux are on the [Releases page](https://github.com/MelodicDevelopment/tapedeck/releases/latest) — download and run.
+
+Prefer to build it yourself (needed if you want your own Google OAuth client, or to contribute)? It's about two minutes once the toolchain is installed.
 
 ### Prerequisites
 
@@ -49,7 +51,7 @@ The demo playlist works with zero configuration if you just want to see it run.
 
 ### Google Cloud setup
 
-Sign-in uses your **own** OAuth client, so your usage is never mixed with anyone else's:
+Only needed when building from source — the prebuilt release ships with its own client. Sign-in uses your **own** OAuth client, so your usage is never mixed with anyone else's:
 
 1. Create a [Google Cloud](https://console.cloud.google.com) project and enable **YouTube Data API v3**.
 2. Configure the OAuth consent screen; add your Google account as a test user.
@@ -111,7 +113,6 @@ One hard boundary: Tapedeck plays YouTube through the official embed and APIs. P
 
 ## Roadmap
 
-- Prebuilt, notarized releases via GitHub Actions
 - Windows and Linux packaging verification
 - Drag-to-reorder mixtapes
 - Import/export of the library

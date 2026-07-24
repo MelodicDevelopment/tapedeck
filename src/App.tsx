@@ -1,3 +1,4 @@
+import { X } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   DesktopCommandError,
@@ -9,6 +10,7 @@ import {
 } from './api/auth'
 import { exportLibrary, loadLibrary, saveLibrary } from './api/library'
 import { syncLibrary, type SyncedDevice } from './api/sync'
+import { checkForUpdate, type UpdateInfo } from './api/updates'
 import { resolveYouTubeSource, TapedeckApiError } from './api/youtube'
 import { ConfirmDialog } from './components/ConfirmDialog'
 import { PlayerScreen } from './components/PlayerScreen'
@@ -55,6 +57,8 @@ export default function App() {
   const [syncStatus, setSyncStatus] = useState<SyncStatus>('idle')
   const [syncDevices, setSyncDevices] = useState<SyncedDevice[]>([])
   const [syncError, setSyncError] = useState('')
+  const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null)
+  const [updateDismissed, setUpdateDismissed] = useState(false)
   const requestController = useRef<AbortController | null>(null)
 
   useEffect(() => {
@@ -79,6 +83,17 @@ export default function App() {
         setAuthStatus({ configured: true, authenticated: false })
         setError(authError instanceof DesktopCommandError ? authError.message : 'Tapedeck could not check Google sign-in.')
       })
+    return () => {
+      active = false
+    }
+  }, [desktop])
+
+  useEffect(() => {
+    if (!desktop) return
+    let active = true
+    checkForUpdate()
+      .then((info) => active && setUpdateInfo(info))
+      .catch(() => {})
     return () => {
       active = false
     }
@@ -390,6 +405,24 @@ export default function App() {
 
   return (
     <>
+      {updateInfo && !updateDismissed && (
+        <div className="update-banner" role="status">
+          <span>
+            Tapedeck {updateInfo.latestVersion} is available (you have {updateInfo.currentVersion}).
+          </span>
+          <a href={updateInfo.releaseUrl} target="_blank" rel="noreferrer" className="update-banner__link">
+            Get the update
+          </a>
+          <button
+            type="button"
+            className="update-banner__dismiss"
+            onClick={() => setUpdateDismissed(true)}
+            aria-label="Dismiss update notice"
+          >
+            <X aria-hidden="true" />
+          </button>
+        </div>
+      )}
       {hasPlayer && activePlaylist && (
         <PlayerScreen
           key={activePlaylist.sourceUrl}

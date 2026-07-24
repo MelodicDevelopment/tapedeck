@@ -32,7 +32,7 @@ pub struct Playlist {
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
-struct Track {
+pub struct Track {
     id: String,
     title: String,
     artist: String,
@@ -544,6 +544,66 @@ pub async fn resolve_youtube_source(
         thumbnail: metadata.thumbnail,
         source_url,
         tracks,
+    })
+}
+
+/// Looks up a single video by id — used when the user clicks a related
+/// video inside the embedded YouTube player (its "More videos" overlay,
+/// end screens, etc.) so it can play inline instead of just opening a
+/// browser tab. Unlike `resolve_youtube_source`, this isn't scoped to any
+/// playlist, so title/channel/duration all come from `videos.list` directly.
+#[tauri::command]
+pub async fn resolve_video(
+    video_id: String,
+    state: State<'_, AppState>,
+) -> Result<Track, CommandError> {
+    let api_key = youtube_api_key().ok_or_else(|| {
+        CommandError::new(
+            "YOUTUBE_API_KEY_NOT_CONFIGURED",
+            "This build is missing its YouTube API key.",
+        )
+    })?;
+    let response = youtube_get(
+        &state,
+        "videos",
+        vec![
+            ("part", "snippet,contentDetails,status".to_owned()),
+            ("id", video_id.clone()),
+        ],
+        &api_key,
+    )
+    .await?;
+    let video = response.pointer("/items/0").ok_or_else(|| {
+        CommandError::new(
+            "SOURCE_NOT_FOUND",
+            "That video could not be found on YouTube.",
+        )
+    })?;
+
+    let unavailable = video.pointer("/status/embeddable").and_then(Value::as_bool) == Some(false)
+        || video
+            .pointer("/status/privacyStatus")
+            .and_then(Value::as_str)
+            != Some("public");
+    let title = text_at(video, "/snippet/title");
+    let artist = text_at(video, "/snippet/channelTitle");
+
+    Ok(Track {
+        id: video_id,
+        title: if title.is_empty() {
+            "Unavailable video".to_owned()
+        } else {
+            title
+        },
+        artist: if unavailable {
+            "Unavailable on YouTube".to_owned()
+        } else if artist.is_empty() {
+            "YouTube".to_owned()
+        } else {
+            artist
+        },
+        duration: parse_iso_duration(&text_at(video, "/contentDetails/duration")),
+        unavailable,
     })
 }
 

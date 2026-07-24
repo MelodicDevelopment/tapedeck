@@ -1,5 +1,5 @@
 import { invoke } from '@tauri-apps/api/core'
-import type { Playlist } from '../data/mockPlaylist'
+import type { Playlist, Track } from '../data/mockPlaylist'
 import { isDesktopApp } from './auth'
 
 const configuredApiBase = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.replace(/\/$/, '') ?? ''
@@ -68,4 +68,23 @@ export async function resolveYouTubeSource(url: string, signal?: AbortSignal): P
     throw new TapedeckApiError('The server returned an empty or invalid playlist.', 'INVALID_RESPONSE')
   }
   return body
+}
+
+/**
+ * Looks up a single video by id — desktop-only, used when the user clicks a
+ * related video inside the embedded YouTube player (its "More videos"
+ * overlay, end screens) so it can play inline. That click only ever reaches
+ * the app via Tauri's `on_new_window` hook, which doesn't exist in a plain
+ * browser tab, so there's no non-desktop fallback to build here.
+ */
+export async function resolveVideo(videoId: string): Promise<Track> {
+  try {
+    return await invoke<Track>('resolve_video', { videoId })
+  } catch (error) {
+    if (typeof error === 'object' && error !== null) {
+      const commandError = error as { code?: string; message?: string }
+      throw new TapedeckApiError(commandError.message ?? 'Tapedeck could not load that video.', commandError.code)
+    }
+    throw new TapedeckApiError(typeof error === 'string' ? error : 'Tapedeck could not load that video.')
+  }
 }
