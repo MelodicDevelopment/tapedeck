@@ -1,7 +1,7 @@
 {
   "name": "tapedeck",
   "private": true,
-  "version": "0.2.0",
+  "version": "0.2.1",
   "type": "module",
   "scripts": {
     "dev": "concurrently --kill-others-on-fail --names api,web \"npm:dev:server\" \"npm:dev:client\"",
