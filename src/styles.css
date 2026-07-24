@@ -2205,7 +2205,7 @@ input:disabled {
   transition: opacity 120ms ease, background-color 120ms ease, color 120ms ease;
 }
 
-.track-item:hover .track-item__action,
+.track-item--hovered .track-item__action,
 .track-item:focus-within .track-item__action {
   opacity: 1;
 }

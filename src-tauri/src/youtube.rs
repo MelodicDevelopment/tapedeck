@@ -10,7 +10,6 @@ use url::Url;
 use crate::auth::{google_env, send_with_retry, transport_detail, AppState, CommandError};
 
 const API_ROOT: &str = "https://www.googleapis.com/youtube/v3";
-const MAX_TRACKS: usize = 150;
 
 fn youtube_api_key() -> Option<String> {
     google_env(
@@ -361,11 +360,10 @@ async fn load_playlist_items(
     let mut page_token = String::new();
 
     loop {
-        let remaining = MAX_TRACKS - items.len();
         let mut params = vec![
             ("part", "snippet,contentDetails,status".to_owned()),
             ("playlistId", playlist_id.to_owned()),
-            ("maxResults", remaining.min(50).to_string()),
+            ("maxResults", "50".to_owned()),
         ];
         if !page_token.is_empty() {
             params.push(("pageToken", page_token.clone()));
@@ -381,12 +379,11 @@ async fn load_playlist_items(
             items.extend(next_items.iter().cloned());
         }
         page_token = text_at(&response, "/nextPageToken");
-        if page_token.is_empty() || items.len() >= MAX_TRACKS {
+        if page_token.is_empty() {
             break;
         }
     }
 
-    items.truncate(MAX_TRACKS);
     Ok(items)
 }
 

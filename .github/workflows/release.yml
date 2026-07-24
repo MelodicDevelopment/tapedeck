@@ -72,6 +72,9 @@ jobs:
           # app can complete Google sign-in.
           TAPEDECK_GOOGLE_CLIENT_ID: ${{ secrets.TAPEDECK_GOOGLE_CLIENT_ID }}
           TAPEDECK_GOOGLE_CLIENT_SECRET: ${{ secrets.TAPEDECK_GOOGLE_CLIENT_SECRET }}
+          # Also embedded at build time — YouTube reads use this plain API
+          # key, not the Google OAuth session (see src-tauri/src/youtube.rs).
+          TAPEDECK_YOUTUBE_API_KEY: ${{ secrets.TAPEDECK_YOUTUBE_API_KEY }}
 
           # macOS signing + notarization, consumed directly by tauri-bundler.
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}

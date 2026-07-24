@@ -105,6 +105,11 @@ export function PlayerScreen({
   const [repeatMode, setRepeatMode] = useState<RepeatMode>(initialRepeatMode)
   const [dragIndex, setDragIndex] = useState<number | null>(null)
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null)
+  // CSS `:hover` never re-evaluates on scroll, only on actual pointer
+  // movement — scrolling a row under a stationary cursor leaves it (or the
+  // row you scrolled away from) stuck showing its hover-only action button.
+  // Tracking hover in JS and clearing it explicitly on scroll fixes that.
+  const [hoveredIndex, setHoveredIndex] = useState<number | null>(null)
   const [shortcutsOpen, setShortcutsOpen] = useState(false)
   const [mode, setMode] = useState<'video' | 'audio'>('video')
   // Set when the user clicks a related video inside the embedded YouTube
@@ -412,7 +417,12 @@ export function PlayerScreen({
             </button>
           </div>
 
-          <ol className="track-list" aria-label="Tracks" ref={trackListRef}>
+          <ol
+            className="track-list"
+            aria-label="Tracks"
+            ref={trackListRef}
+            onScroll={() => setHoveredIndex(null)}
+          >
             {playlist.tracks.map((item, index) => {
               const isCurrent = index === currentIndex
               const isUnavailable = Boolean(item.unavailable || failedVideoIds.has(item.id))
@@ -421,8 +431,10 @@ export function PlayerScreen({
               return (
                 <li
                   key={item.id}
-                  className={`track-item${reorderable && dragOverIndex === index ? ' track-item--drag-over' : ''}`}
+                  className={`track-item${reorderable && dragOverIndex === index ? ' track-item--drag-over' : ''}${hoveredIndex === index ? ' track-item--hovered' : ''}`}
                   draggable={reorderable}
+                  onMouseEnter={() => setHoveredIndex(index)}
+                  onMouseLeave={() => setHoveredIndex((current) => (current === index ? null : current))}
                   onDragStart={reorderable ? () => setDragIndex(index) : undefined}
                   onDragOver={
                     reorderable
