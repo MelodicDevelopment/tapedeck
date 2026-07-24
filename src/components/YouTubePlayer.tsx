@@ -45,7 +45,7 @@ export function YouTubePlayer({
         height: '100%',
         playerVars: {
           autoplay: 0,
-          controls: 0,
+          controls: 1,
           disablekb: 1,
           playsinline: 1,
           rel: 0,

@@ -7,10 +7,17 @@ use serde_json::Value;
 use tauri::State;
 use url::Url;
 
-use crate::auth::{access_token, send_with_retry, transport_detail, AppState, CommandError};
+use crate::auth::{google_env, send_with_retry, transport_detail, AppState, CommandError};
 
 const API_ROOT: &str = "https://www.googleapis.com/youtube/v3";
 const MAX_TRACKS: usize = 150;
+
+fn youtube_api_key() -> Option<String> {
+    google_env(
+        "TAPEDECK_YOUTUBE_API_KEY",
+        option_env!("TAPEDECK_YOUTUBE_API_KEY"),
+    )
+}
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -185,15 +192,13 @@ fn youtube_error(status: StatusCode, body: &Value) -> CommandError {
         .unwrap_or_default();
 
     match (status, reason) {
-        (StatusCode::UNAUTHORIZED, _) | (_, "authError") | (_, "insufficientPermissions") => {
-            CommandError::new(
-                "AUTH_REQUIRED",
-                "Your Google session no longer has permission to read YouTube. Sign in again.",
-            )
-        }
         (_, "quotaExceeded") | (_, "dailyLimitExceeded") => CommandError::new(
             "QUOTA_EXCEEDED",
             "The YouTube API quota is temporarily exhausted. Try again later.",
+        ),
+        (StatusCode::UNAUTHORIZED, _) | (StatusCode::FORBIDDEN, _) => CommandError::new(
+            "YOUTUBE_API_KEY_ERROR",
+            "Tapedeck's YouTube API key was rejected. This is a configuration issue, not something you can fix here.",
         ),
         (StatusCode::BAD_REQUEST, _) | (StatusCode::NOT_FOUND, _) => CommandError::new(
             "SOURCE_NOT_FOUND",
@@ -201,7 +206,7 @@ fn youtube_error(status: StatusCode, body: &Value) -> CommandError {
         ),
         _ => CommandError::new(
             "YOUTUBE_REJECTED",
-            "YouTube rejected the request. Try signing in again or use another source.",
+            "YouTube rejected the request. Try again or use another source.",
         ),
     }
 }
@@ -209,14 +214,14 @@ fn youtube_error(status: StatusCode, body: &Value) -> CommandError {
 async fn youtube_get(
     state: &AppState,
     resource: &str,
-    params: Vec<(&str, String)>,
-    token: &str,
+    mut params: Vec<(&str, String)>,
+    api_key: &str,
 ) -> Result<Value, CommandError> {
+    params.push(("key", api_key.to_owned()));
     let response = send_with_retry(
         state
             .client
             .get(format!("{API_ROOT}/{resource}"))
-            .bearer_auth(token)
             .query(&params),
     )
     .await
@@ -247,7 +252,7 @@ async fn youtube_get(
 async fn resolve_channel(
     state: &AppState,
     source: &Source,
-    token: &str,
+    api_key: &str,
 ) -> Result<SourceMetadata, CommandError> {
     let (filter, identifier) = match source {
         Source::Channel { filter, id, .. } => (filter.clone(), id.clone()),
@@ -261,7 +266,7 @@ async fn resolve_channel(
                     ("type", "channel".to_owned()),
                     ("maxResults", "1".to_owned()),
                 ],
-                token,
+                api_key,
             )
             .await?;
             let channel_id = text_at(&search, "/items/0/snippet/channelId");
@@ -284,7 +289,7 @@ async fn resolve_channel(
             (filter.as_str(), identifier),
             ("maxResults", "1".to_owned()),
         ],
-        token,
+        api_key,
     )
     .await?;
     let channel = response.pointer("/items/0").ok_or_else(|| {
@@ -314,7 +319,7 @@ async fn resolve_channel(
 async fn resolve_playlist(
     state: &AppState,
     playlist_id: &str,
-    token: &str,
+    api_key: &str,
 ) -> Result<SourceMetadata, CommandError> {
     let response = youtube_get(
         state,
@@ -324,7 +329,7 @@ async fn resolve_playlist(
             ("id", playlist_id.to_owned()),
             ("maxResults", "1".to_owned()),
         ],
-        token,
+        api_key,
     )
     .await?;
     let playlist = response.pointer("/items/0").ok_or_else(|| {
@@ -350,7 +355,7 @@ async fn resolve_playlist(
 async fn load_playlist_items(
     state: &AppState,
     playlist_id: &str,
-    token: &str,
+    api_key: &str,
 ) -> Result<Vec<Value>, CommandError> {
     let mut items = Vec::new();
     let mut page_token = String::new();
@@ -367,7 +372,7 @@ async fn load_playlist_items(
         }
         // Channels without any uploaded videos 404 on their uploads playlist;
         // report that as an empty source instead of "not found".
-        let response = match youtube_get(state, "playlistItems", params, token).await {
+        let response = match youtube_get(state, "playlistItems", params, api_key).await {
             Ok(response) => response,
             Err(error) if error.code == "SOURCE_NOT_FOUND" && items.is_empty() => break,
             Err(error) => return Err(error),
@@ -388,7 +393,7 @@ async fn load_playlist_items(
 async fn load_video_details(
     state: &AppState,
     video_ids: &[String],
-    token: &str,
+    api_key: &str,
 ) -> Result<HashMap<String, Value>, CommandError> {
     let mut details = HashMap::new();
     for ids in video_ids.chunks(50) {
@@ -400,7 +405,7 @@ async fn load_video_details(
                 ("id", ids.join(",")),
                 ("maxResults", "50".to_owned()),
             ],
-            token,
+            api_key,
         )
         .await?;
         if let Some(items) = response.get("items").and_then(Value::as_array) {
@@ -452,14 +457,19 @@ pub async fn resolve_youtube_source(
 ) -> Result<Playlist, CommandError> {
     let source = parse_youtube_source(&url)?;
     let source_url = canonical_url(&source);
-    let token = access_token(&state).await?;
+    let api_key = youtube_api_key().ok_or_else(|| {
+        CommandError::new(
+            "YOUTUBE_API_KEY_NOT_CONFIGURED",
+            "This build is missing its YouTube API key.",
+        )
+    })?;
     let metadata = match &source {
-        Source::Playlist { id, .. } => resolve_playlist(&state, id, &token).await?,
+        Source::Playlist { id, .. } => resolve_playlist(&state, id, &api_key).await?,
         Source::Channel { .. } | Source::Custom { .. } => {
-            resolve_channel(&state, &source, &token).await?
+            resolve_channel(&state, &source, &api_key).await?
         }
     };
-    let playlist_items = load_playlist_items(&state, &metadata.playlist_id, &token).await?;
+    let playlist_items = load_playlist_items(&state, &metadata.playlist_id, &api_key).await?;
     let video_ids: Vec<String> = playlist_items
         .iter()
         .filter_map(|item| {
@@ -467,7 +477,7 @@ pub async fn resolve_youtube_source(
             (!id.is_empty()).then_some(id)
         })
         .collect();
-    let details = load_video_details(&state, &video_ids, &token).await?;
+    let details = load_video_details(&state, &video_ids, &api_key).await?;
 
     let tracks: Vec<Track> = playlist_items
         .iter()
@@ -519,7 +529,7 @@ pub async fn resolve_youtube_source(
     if tracks.is_empty() {
         return Err(CommandError::new(
             "EMPTY_SOURCE",
-            "That source does not contain any videos available to your account.",
+            "That source does not contain any public videos.",
         ));
     }
 

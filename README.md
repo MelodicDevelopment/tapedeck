@@ -20,7 +20,7 @@ Videos always play through the visible, official YouTube embedded player. Tapede
 - **Real player controls** — shuffle, repeat (playlist or single video), autoplay, and a queue that follows the playing track
 - **OS integration** — hardware media keys (play/pause/next/previous), Now Playing metadata in the macOS Control Center, and background playback when the window is closed
 - **Keyboard shortcuts** — Space to play/pause, arrow keys for volume
-- **Privacy-respecting by design** — no Tapedeck account, no telemetry, no database; your Google login exists solely to make read-only YouTube API calls, and the refresh token lives in your OS credential vault
+- **Privacy-respecting by design** — no Tapedeck account, no telemetry, no database; your Google login exists only to identify your account and optionally sync your library, and the refresh token lives in your OS credential vault
 
 ## Installation
 
@@ -39,7 +39,7 @@ There are no prebuilt releases yet — you build Tapedeck yourself (about two mi
 ```sh
 git clone https://github.com/MelodicDevelopment/tapedeck.git
 cd tapedeck
-cp .env.example .env   # add your Google OAuth client ID + secret
+cp .env.example .env   # add your Google OAuth client ID + secret + YouTube API key
 npm install
 npm run desktop        # development app
 npm run desktop:build  # packaged .app / installer
@@ -54,11 +54,12 @@ Sign-in uses your **own** OAuth client, so your usage is never mixed with anyone
 1. Create a [Google Cloud](https://console.cloud.google.com) project and enable **YouTube Data API v3**.
 2. Configure the OAuth consent screen; add your Google account as a test user.
 3. Create **Credentials → OAuth client ID → Desktop app**.
-4. Put the client ID and secret in `.env` as `TAPEDECK_GOOGLE_CLIENT_ID` and `TAPEDECK_GOOGLE_CLIENT_SECRET`.
+4. Create **Credentials → API key**, restricted to YouTube Data API v3.
+5. Put these in `.env` as `TAPEDECK_GOOGLE_CLIENT_ID`, `TAPEDECK_GOOGLE_CLIENT_SECRET`, and `TAPEDECK_YOUTUBE_API_KEY`.
 
-Both values are embedded at build time. Google requires the Desktop-app secret at the token endpoint even with PKCE and [documents installed-app secrets as non-confidential](https://developers.google.com/identity/protocols/oauth2#installed) — but keep `.env` out of source control regardless.
+All three values are embedded at build time. Google requires the Desktop-app secret at the token endpoint even with PKCE and [documents installed-app secrets as non-confidential](https://developers.google.com/identity/protocols/oauth2#installed) — but keep `.env` out of source control regardless.
 
-Tapedeck requests `youtube.readonly`, `openid`, `email`, and `profile` — nothing that can modify your account.
+Tapedeck only ever reads public channel/playlist/video data, so YouTube access is a plain API key, not an OAuth scope. Sign-in requests `openid`, `email`, and `profile` to identify your account, plus `drive.appdata` if you enable library sync — nothing that can modify your YouTube account.
 
 ## How it works
 
@@ -67,7 +68,7 @@ Tapedeck requests `youtube.readonly`, `openid`, `email`, and `profile` — nothi
 | Shell | Tauri 2 (Rust) | Uses the OS webview instead of bundling Chromium — small binary, low idle memory |
 | UI | React + TypeScript + Vite | Fast iteration, typed end to end |
 | Playback | YouTube IFrame Player API | Official, visible embed — compliant playback with ads/analytics intact |
-| Data | YouTube Data API v3 | Called directly from the Rust host with the user's short-lived access token |
+| Data | YouTube Data API v3 | Called directly from the Rust host with a build-embedded API key (public data only, no user auth) |
 | Auth | OAuth installed-app flow | System browser + PKCE + loopback callback + state validation |
 | Secrets | OS credential vault | Refresh token in Keychain/Credential Manager; access tokens stay in memory |
 | Storage | JSON in the app data dir | Library and mixtapes; no server, no accounts |

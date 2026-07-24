@@ -19,7 +19,7 @@ const AUTHORIZATION_ENDPOINT: &str = "https://accounts.google.com/o/oauth2/v2/au
 const TOKEN_ENDPOINT: &str = "https://oauth2.googleapis.com/token";
 const USERINFO_ENDPOINT: &str = "https://openidconnect.googleapis.com/v1/userinfo";
 const REVOCATION_ENDPOINT: &str = "https://oauth2.googleapis.com/revoke";
-const SCOPES: &str = "openid email profile https://www.googleapis.com/auth/youtube.readonly https://www.googleapis.com/auth/drive.appdata";
+const SCOPES: &str = "openid email profile https://www.googleapis.com/auth/drive.appdata";
 const KEYRING_SERVICE: &str = "com.melodicdevelopment.tapedeck";
 const KEYRING_ACCOUNT: &str = "google-refresh-token";
 const OAUTH_TIMEOUT: Duration = Duration::from_secs(180);
@@ -79,7 +79,6 @@ struct TokenResponse {
     access_token: String,
     expires_in: Option<u64>,
     refresh_token: Option<String>,
-    scope: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -137,7 +136,7 @@ impl AppState {
     }
 }
 
-fn google_env(runtime_key: &str, build_value: Option<&'static str>) -> Option<String> {
+pub(crate) fn google_env(runtime_key: &str, build_value: Option<&'static str>) -> Option<String> {
     std::env::var(runtime_key)
         .ok()
         .filter(|value| !value.trim().is_empty())
@@ -583,27 +582,6 @@ pub async fn sign_in_with_google(state: State<'_, AppState>) -> Result<AuthStatu
         ],
     )
     .await?;
-    // Google's granular consent lets users uncheck individual scopes; without
-    // youtube.readonly the session cannot do anything, so reject it up front
-    // instead of storing a login that fails on every load. An absent scope
-    // field means every requested scope was granted (RFC 6749 §5.1).
-    let youtube_granted = token.scope.as_deref().is_none_or(|granted| {
-        granted
-            .split(' ')
-            .any(|scope| scope == "https://www.googleapis.com/auth/youtube.readonly")
-    });
-    if !youtube_granted {
-        let _ = state
-            .client
-            .post(REVOCATION_ENDPOINT)
-            .form(&[("token", token.access_token.as_str())])
-            .send()
-            .await;
-        return Err(CommandError::new(
-            "YOUTUBE_SCOPE_MISSING",
-            "Google sign-in finished without YouTube access. Sign in again and keep the box that lets Tapedeck view your YouTube account checked.",
-        ));
-    }
     let refresh_token = token.refresh_token.ok_or_else(|| {
         CommandError::new(
             "REFRESH_TOKEN_MISSING",

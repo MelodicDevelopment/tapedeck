@@ -28,6 +28,10 @@ fn main() {
     // even with PKCE; it is not treated as confidential for installed apps.
     forward_env("TAPEDECK_GOOGLE_CLIENT_ID");
     forward_env("TAPEDECK_GOOGLE_CLIENT_SECRET");
+    // YouTube Data API access is a plain API key, not part of the OAuth
+    // scopes: Tapedeck only ever reads public channel/playlist/video data,
+    // never the signed-in user's own YouTube account.
+    forward_env("TAPEDECK_YOUTUBE_API_KEY");
 
     // Declare app commands so the ACL generates allow-* permissions; without
     // this, the packaged localhost origin cannot invoke any Tapedeck command.

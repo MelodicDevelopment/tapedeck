@@ -9,6 +9,24 @@
 			name="description"
 			content="Tapedeck is a free, open-source desktop application that turns YouTube channels and playlists into a focused, distraction-free playback queue."
 		/>
+		<link rel="canonical" href="https://tapedeck.melodic.dev/" />
+		<link
+			rel="icon"
+			type="image/svg+xml"
+			href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1024 1024'%3E%3Cdefs%3E%3ClinearGradient id='ac' x1='0' y1='0' x2='0' y2='1'%3E%3Cstop offset='0' stop-color='%23b6acf8'/%3E%3Cstop offset='1' stop-color='%237263e7'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='1024' height='1024' rx='224' fill='%23171512'/%3E%3Ccircle cx='512' cy='512' r='360' fill='url(%23ac)'/%3E%3Cpath d='M440 360 L680 512 L440 664 Z' fill='%23171512'/%3E%3C/svg%3E"
+		/>
+		<meta property="og:type" content="website" />
+		<meta property="og:site_name" content="Tapedeck" />
+		<meta property="og:title" content="Tapedeck — Your queue, less noise." />
+		<meta
+			property="og:description"
+			content="Tapedeck is a free, open-source desktop application that turns YouTube channels and playlists into a focused, distraction-free playback queue."
+		/>
+		<meta property="og:url" content="https://tapedeck.melodic.dev/" />
+		<meta
+			property="og:image"
+			content="https://tapedeck.melodic.dev/screenshot.png"
+		/>
 		<style>
 			@import url('https://fonts.googleapis.com/css2?family=Albert+Sans:wght@400;500;600;700&display=swap');
 
@@ -502,6 +520,7 @@
 				</nav>
 			</header>
 
+			<main>
 			<section class="hero">
 				<p class="eyebrow">Desktop app · Free &amp; open source</p>
 				<h1>Tapedeck</h1>
@@ -563,8 +582,9 @@
 			<section class="about">
 				<h2>What is Tapedeck?</h2>
 				<p>
-					Tapedeck is a lightweight desktop application designed for
-					people who use YouTube as a music player. Instead of
+					Tapedeck is a lightweight desktop application, developed and
+					maintained by Melodic Development, designed for people who
+					use YouTube as a music player. Instead of
 					browsing YouTube with comments, recommendations, and
 					endless distractions, Tapedeck lets you create a clean
 					playback queue, organize your favorite sources into a
@@ -623,35 +643,36 @@
 			<section class="permissions" id="permissions">
 				<h2>How Tapedeck Uses Google</h2>
 				<p class="permissions__intro">
-					Google Sign-In is used to identify your selected Google
-					account. Tapedeck requests only the permissions required to
-					load the YouTube content you choose and, if enabled,
-					synchronize your Tapedeck library using your private Google
-					Drive app-data folder.
+					Google Sign-In identifies your selected Google account and,
+					if enabled, synchronizes your Tapedeck library using your
+					private Google Drive app-data folder. YouTube channel and
+					playlist data is fetched separately using Tapedeck's own
+					API key — your Google account is never used to access
+					YouTube.
 				</p>
 				<div class="permissions__grid">
 					<div class="permissions__col">
 						<h3>This app will</h3>
 						<ul>
 							<li>
-								Read the YouTube channels, playlists, and videos
-								you paste into Tapedeck (read-only) to build your
-								queue
+								Use your basic Google profile (name and email) to
+								identify your signed-in account
 							</li>
 							<li>
 								Store your Tapedeck library and mixtapes in a
-								private, app-only folder in your Google Drive, so
-								they sync across your devices
-							</li>
-							<li>
-								Use your basic Google profile (name and email) to
-								identify your signed-in account
+								private, app-only folder in your Google Drive, if
+								you enable sync
 							</li>
 						</ul>
 					</div>
 					<div class="permissions__col permissions__col--not">
 						<h3>This app will not</h3>
 						<ul>
+							<li>
+								Use your Google sign-in to access YouTube — public
+								channel and playlist data is fetched separately
+								with Tapedeck's own API key
+							</li>
 							<li>
 								Post, upload, delete, or change anything in your
 								YouTube account, or read your subscriptions
@@ -678,6 +699,7 @@
 				<span class="pill">Rust</span>
 				<span class="pill">MIT licensed</span>
 			</div>
+			</main>
 
 			<footer>
 				<p>
@@ -692,7 +714,18 @@
 				</p>
 				<p>
 					<a href="/privacy.html">Privacy Policy</a> ·
-					<a href="/terms.html">Terms of Service</a>
+					<a href="/terms.html">Terms of Service</a> ·
+					<a href="https://github.com/MelodicDevelopment/tapedeck/issues"
+						>Contact</a
+					>
+					·
+					<a href="mailto:rickhopkins@melodic.dev"
+						>rickhopkins@melodic.dev</a
+					>
+				</p>
+				<p>
+					Tapedeck is developed and maintained by Melodic Development. ©
+					2026 Melodic Development.
 				</p>
 			</footer>
 		</div>

@@ -5,7 +5,18 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="theme-color" content="#171512" />
   <title>Privacy Policy — Tapedeck</title>
-  <meta name="description" content="How Tapedeck handles your data: no accounts, no telemetry, no server — your Google sign-in only makes read-only YouTube API calls and optional Drive sync." />
+  <meta name="description" content="Tapedeck's privacy policy: no accounts, no telemetry, no server — Google sign-in only identifies your account and optionally syncs your library via Google Drive." />
+  <link rel="canonical" href="https://tapedeck.melodic.dev/privacy.html" />
+  <link
+    rel="icon"
+    type="image/svg+xml"
+    href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1024 1024'%3E%3Cdefs%3E%3ClinearGradient id='ac' x1='0' y1='0' x2='0' y2='1'%3E%3Cstop offset='0' stop-color='%23b6acf8'/%3E%3Cstop offset='1' stop-color='%237263e7'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='1024' height='1024' rx='224' fill='%23171512'/%3E%3Ccircle cx='512' cy='512' r='360' fill='url(%23ac)'/%3E%3Cpath d='M440 360 L680 512 L440 664 Z' fill='%23171512'/%3E%3C/svg%3E"
+  />
+  <meta property="og:type" content="website" />
+  <meta property="og:site_name" content="Tapedeck" />
+  <meta property="og:title" content="Privacy Policy — Tapedeck" />
+  <meta property="og:description" content="Tapedeck's privacy policy: no accounts, no telemetry, no server — Google sign-in only identifies your account and optionally syncs your library via Google Drive." />
+  <meta property="og:url" content="https://tapedeck.melodic.dev/privacy.html" />
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Albert+Sans:wght@400;500;600;700&display=swap');
 
@@ -219,17 +230,20 @@
 
     <main>
       <p class="eyebrow">Legal</p>
-      <h1>Privacy Policy</h1>
+      <h1>Tapedeck Privacy Policy</h1>
       <p class="updated">Last updated: July 23, 2026</p>
 
       <section>
         <h2>The short version</h2>
         <p>
-          Tapedeck is a local desktop app. There is no Tapedeck account, no Tapedeck server, and no telemetry.
-          Your Google sign-in exists only to call the YouTube Data API on your behalf and, if you turn on sync,
-          to store your library in a private folder in your own Google Drive. Nothing you do in Tapedeck is
-          sent to Melodic Development or any third party we control, because we don't operate any backend for
-          the app to send it to.
+          Tapedeck is a local desktop app developed and maintained by Melodic Development. There is no
+          Tapedeck account, no Tapedeck server, and no telemetry.
+          Your Google sign-in exists only to identify your account and, if you turn on sync, to store your
+          library in a private folder in your own Google Drive. YouTube channel, playlist, and video data is
+          fetched separately using Tapedeck's own API key, not your Google account — Tapedeck only ever reads
+          public YouTube data, never your subscriptions or account. Nothing you do in Tapedeck is sent to
+          Melodic Development or any third party we control, because we don't operate any backend for the app
+          to send it to.
         </p>
       </section>
 
@@ -251,12 +265,18 @@
         </p>
         <ul>
           <li><strong><code>openid</code>, <code>email</code>, <code>profile</code></strong> — to show your name and avatar in the app; no other use.</li>
-          <li><strong><code>youtube.readonly</code></strong> — read-only access to the YouTube Data API, used to resolve the channels, playlists, and videos you paste into Tapedeck. Tapedeck does not read your subscriptions, upload videos, or modify your YouTube account.</li>
           <li><strong><code>drive.appdata</code></strong> — access to a hidden, app-specific folder in your Google Drive (not your regular Drive files), used only if you enable multi-device library sync. This folder is not visible in the Drive UI and no other app can read it.</li>
         </ul>
         <p>
           These calls are made directly from the Tapedeck app on your device to Google's servers using your
           own OAuth client credentials — they never pass through infrastructure operated by Melodic Development.
+        </p>
+        <p>
+          Resolving the channels, playlists, and videos you paste into Tapedeck uses the YouTube Data API
+          separately, authenticated with Tapedeck's own API key rather than your Google account. This is
+          possible because Tapedeck only ever reads public YouTube data — it never reads your subscriptions,
+          uploads videos, or modifies your YouTube account, and your Google sign-in is never involved in
+          those requests.
         </p>
       </section>
 
@@ -310,13 +330,21 @@
         <h2>Contact</h2>
         <p>
           Questions about this policy can be filed as an issue on
-          <a href="https://github.com/MelodicDevelopment/tapedeck/issues">GitHub</a>.
+          <a href="https://github.com/MelodicDevelopment/tapedeck/issues">GitHub</a>
+          or emailed to <a href="mailto:rickhopkins@melodic.dev">rickhopkins@melodic.dev</a>.
         </p>
       </section>
     </main>
 
     <footer>
       <p><a href="https://github.com/MelodicDevelopment/tapedeck">github.com/MelodicDevelopment/tapedeck</a></p>
+      <p>
+        <a href="/privacy.html">Privacy Policy</a> ·
+        <a href="/terms.html">Terms of Service</a> ·
+        <a href="https://github.com/MelodicDevelopment/tapedeck/issues">Contact</a> ·
+        <a href="mailto:rickhopkins@melodic.dev">rickhopkins@melodic.dev</a>
+      </p>
+      <p>Tapedeck is developed and maintained by Melodic Development. © 2026 Melodic Development.</p>
     </footer>
   </div>
 </body>
