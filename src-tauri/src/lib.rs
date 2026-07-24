@@ -5,7 +5,12 @@ mod media;
 mod sync;
 mod youtube;
 
-use tauri::{webview::WebviewWindowBuilder, Emitter, Manager, WebviewUrl};
+use tauri::{
+    menu::{Menu, MenuItem},
+    tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
+    webview::WebviewWindowBuilder,
+    Emitter, Manager, WebviewUrl,
+};
 
 #[cfg(not(debug_assertions))]
 const DESKTOP_ORIGIN_PORT: u16 = 14_321;
@@ -126,8 +131,10 @@ pub fn run() {
             media::init(app.handle(), &window)?;
 
             // Closing the window hides it so playback continues in the
-            // background (standard macOS music-app behavior); the dock
-            // icon brings it back and Cmd+Q still quits for real.
+            // background (standard macOS music-app behavior). On macOS the
+            // dock icon brings it back and Cmd+Q still quits for real; on
+            // Windows/Linux there's no dock, so the tray icon below is the
+            // only way to reopen or fully quit once the window is hidden.
             let close_target = window.clone();
             window.on_window_event(move |event| {
                 if let tauri::WindowEvent::CloseRequested { api, .. } = event {
@@ -135,6 +142,63 @@ pub fn run() {
                     let _ = close_target.hide();
                 }
             });
+
+            let show_item = MenuItem::with_id(app, "show", "Show Tapedeck", true, None::<&str>)?;
+            let quit_item = MenuItem::with_id(app, "quit", "Quit Tapedeck", true, None::<&str>)?;
+            let tray_menu = Menu::with_items(app, &[&show_item, &quit_item])?;
+
+            // macOS menu bar icons are conventionally a small monochrome
+            // "template" glyph that the system tints/inverts for light/dark
+            // mode and highlight state; a full-color icon there looks like a
+            // foreign object next to every other menu bar item. Windows and
+            // Linux trays are conventionally full color, so they keep using
+            // the app's regular bundle icon.
+            #[cfg(target_os = "macos")]
+            let tray_icon = tauri::image::Image::from_bytes(include_bytes!(
+                "../icons/tray-icon-mac-template.png"
+            ))?;
+            #[cfg(not(target_os = "macos"))]
+            let tray_icon = app
+                .default_window_icon()
+                .expect("bundle icon configured in tauri.conf.json")
+                .clone();
+
+            TrayIconBuilder::new()
+                .icon(tray_icon)
+                .icon_as_template(true)
+                .tooltip("Tapedeck")
+                .menu(&tray_menu)
+                // macOS convention: any click on a menu bar item opens its
+                // menu. Windows/Linux convention: left click restores the
+                // app (handled below), right click opens the menu.
+                .show_menu_on_left_click(cfg!(target_os = "macos"))
+                .on_menu_event(|app, event| match event.id().as_ref() {
+                    "show" => {
+                        if let Some(window) = app.get_webview_window("main") {
+                            let _ = window.unminimize();
+                            let _ = window.show();
+                            let _ = window.set_focus();
+                        }
+                    }
+                    "quit" => app.exit(0),
+                    _ => {}
+                })
+                .on_tray_icon_event(|tray, event| {
+                    if let TrayIconEvent::Click {
+                        button: MouseButton::Left,
+                        button_state: MouseButtonState::Up,
+                        ..
+                    } = event
+                    {
+                        let app = tray.app_handle();
+                        if let Some(window) = app.get_webview_window("main") {
+                            let _ = window.unminimize();
+                            let _ = window.show();
+                            let _ = window.set_focus();
+                        }
+                    }
+                })
+                .build(app)?;
 
             Ok(())
         })
