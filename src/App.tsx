@@ -15,6 +15,7 @@ import { resolveYouTubeSource, TapedeckApiError } from './api/youtube'
 import { ConfirmDialog } from './components/ConfirmDialog'
 import { PlayerScreen } from './components/PlayerScreen'
 import type { SyncStatus } from './components/SyncChip'
+import { TitleBar } from './components/TitleBar'
 import { WelcomeScreen } from './components/WelcomeScreen'
 import type { Playlist, Track } from './data/mockPlaylist'
 import {
@@ -405,6 +406,7 @@ export default function App() {
 
   return (
     <>
+      {desktop && navigator.userAgent.includes('Windows') && <TitleBar />}
       {updateInfo && !updateDismissed && (
         <div className="update-banner" role="status">
           <span>

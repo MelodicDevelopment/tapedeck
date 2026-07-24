@@ -99,6 +99,12 @@ pub fn run() {
                 .inner_size(1280.0, 800.0)
                 .min_inner_size(720.0, 640.0)
                 .center()
+                // macOS's native title bar is already minimal and matches
+                // the app's own chrome; Windows' default title bar looks
+                // dated next to Tapedeck's dark UI, so replace it there with
+                // a custom in-page title bar (see TitleBar.tsx) drawn to
+                // match.
+                .decorations(!cfg!(target_os = "windows"))
                 // The embedded YouTube player (and Tapedeck's own "watch on
                 // YouTube" links) open external pages via `window.open`
                 // (target=_blank). A related-video click inside the player

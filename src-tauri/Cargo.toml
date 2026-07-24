@@ -1,6 +1,6 @@
 [package]
 name = "tapedeck"
-version = "0.2.3"
+version = "0.2.4"
 description = "A focused desktop YouTube listening queue"
 authors = ["Melodic Development"]
 edition = "2021"

@@ -18,6 +18,7 @@
   --text-soft: #c9c4bb;
   --muted: #9a948a;
   --faint: #716c63;
+  --titlebar-h: 0px;
 }
 
 * {
@@ -36,6 +37,57 @@ body {
   min-height: 100vh;
   min-height: 100dvh;
   background: var(--background);
+}
+
+body.frameless-titlebar {
+  --titlebar-h: 32px;
+}
+
+.app-titlebar {
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: var(--titlebar-h);
+  padding-left: 12px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--border);
+  user-select: none;
+}
+
+.app-titlebar__title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+  letter-spacing: 0.02em;
+}
+
+.app-titlebar__controls {
+  display: flex;
+  align-items: stretch;
+  height: 100%;
+}
+
+.app-titlebar__button {
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 100%;
+  border: none;
+  background: transparent;
+  color: var(--text-soft);
+}
+
+.app-titlebar__button:hover {
+  background: var(--raised);
+  color: var(--text);
+}
+
+.app-titlebar__button--close:hover {
+  background: #e81123;
+  color: #fff;
 }
 
 button,
@@ -92,8 +144,8 @@ input:disabled {
 
 .welcome-shell {
   display: grid;
-  min-height: 100vh;
-  min-height: 100dvh;
+  min-height: calc(100vh - var(--titlebar-h));
+  min-height: calc(100dvh - var(--titlebar-h));
   grid-template-rows: auto 1fr auto;
   overflow: hidden;
   background:
@@ -105,6 +157,7 @@ input:disabled {
   position: fixed;
   z-index: 20;
   inset: 0;
+  top: var(--titlebar-h);
 }
 
 .welcome-header {
@@ -674,8 +727,8 @@ input:disabled {
 
 .loaded-shell {
   display: grid;
-  height: 100vh;
-  height: 100dvh;
+  height: calc(100vh - var(--titlebar-h));
+  height: calc(100dvh - var(--titlebar-h));
   grid-template-rows: minmax(0, 1fr) 86px;
   overflow: hidden;
   background: var(--background);
