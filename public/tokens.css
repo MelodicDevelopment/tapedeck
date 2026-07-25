@@ -1,0 +1,199 @@
+/* =============================================================================
+   Tapedeck Design Tokens — warm dark + tape-violet
+   -----------------------------------------------------------------------------
+   The design palette is the single source of truth as `--td-*`, and we MAP it
+   onto Melodic's `--ml-*` semantic tokens. Every @melodicdev/components element
+   (button, input, icon, spinner…) renders as the Tapedeck design automatically —
+   no per-component restyling — and bespoke component CSS consumes the same
+   `--td-*` tokens. Same themeability story as Envy's tokens.css.
+
+   Tapedeck is dark-only today. The palette block is scoped so a `--td-*` light
+   block can slot in later without touching the `--ml-*` mapping below it.
+   ============================================================================= */
+
+@import url('https://fonts.googleapis.com/css2?family=Albert+Sans:wght@400;500;600;700&display=swap');
+
+/* ---- Design palette (source of truth) ------------------------------------- */
+:root {
+  /* Surfaces — warm near-blacks, lightening as elevation rises. */
+  --td-bg: #171512;
+  --td-panel: #1b1916;
+  --td-well: #211e1a;
+  --td-raised: #26221b;
+  --td-overlay: #221f1b;
+  --td-ink: #151310; /* text on accent / light fills */
+
+  /* Lines */
+  --td-border: #2b2823;
+  --td-border-strong: #3a3630;
+  --td-hairline: rgb(255 255 255 / 7%);
+
+  /* Text */
+  --td-text: #f0ede7;
+  --td-text-soft: #c9c4bb;
+  --td-muted: #9a948a;
+  --td-faint: #716c63;
+
+  /* Accent — tape violet */
+  --td-accent: #8b7ff0;
+  --td-accent-hover: #a095f5;
+  --td-accent-soft: #a79ef1;
+  --td-accent-dim: rgb(139 127 240 / 13%);
+  --td-accent-glow: rgb(139 127 240 / 20%);
+
+  /* Status */
+  --td-danger: #a0453a;
+  --td-danger-hover: #b6564a;
+  --td-error: #e08a7c;
+  --td-error-dim: rgb(224 138 124 / 12%);
+  --td-warn: #e0a973;
+  --td-warn-dim: rgb(224 169 115 / 14%);
+  --td-success: #7cc48f;
+  --td-youtube: #dc4d44;
+
+  /* Layout */
+  --td-titlebar-h: 0px;
+}
+
+body.frameless-titlebar {
+  --td-titlebar-h: 32px;
+}
+
+/* ---- Map the palette onto Melodic semantic tokens ------------------------- */
+/* High specificity (:root[data-theme]) so these win over the library defaults. */
+:root,
+:root[data-theme='dark'] {
+  --ml-font-sans: 'Albert Sans', Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --ml-font-mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  --ml-color-background: var(--td-bg);
+  --ml-color-surface: var(--td-panel);
+  --ml-color-surface-raised: var(--td-raised);
+  --ml-color-surface-overlay: var(--td-overlay);
+  --ml-color-surface-sunken: var(--td-well);
+  --ml-color-input-bg: var(--td-well);
+
+  --ml-color-border: var(--td-border);
+  --ml-color-border-muted: var(--td-border);
+  --ml-color-border-strong: var(--td-border-strong);
+  --ml-color-border-focus: var(--td-accent);
+  --ml-color-focus-ring: var(--td-accent);
+  --ml-shadow-ring-color: var(--td-accent-glow);
+
+  --ml-color-text: var(--td-text);
+  --ml-color-text-secondary: var(--td-text-soft);
+  --ml-color-text-muted: var(--td-muted);
+  --ml-color-text-subtle: var(--td-faint);
+  --ml-color-text-inverse: var(--td-ink);
+  --ml-color-text-link: var(--td-accent);
+  --ml-color-text-link-hover: var(--td-accent-hover);
+
+  --ml-color-primary: var(--td-accent);
+  --ml-color-primary-hover: var(--td-accent-hover);
+  --ml-color-primary-active: var(--td-accent-hover);
+  --ml-color-primary-subtle: var(--td-accent-dim);
+
+  --ml-color-success: var(--td-success);
+  --ml-color-success-subtle: var(--td-accent-dim);
+  --ml-color-warning: var(--td-warn);
+  --ml-color-warning-subtle: var(--td-warn-dim);
+  --ml-color-info: var(--td-accent);
+  --ml-color-info-subtle: var(--td-accent-dim);
+  --ml-color-danger: var(--td-danger);
+  --ml-color-danger-hover: var(--td-danger-hover);
+  --ml-color-danger-subtle: var(--td-error-dim);
+
+  /* Radii per the design: chips/rows 9, buttons 10, inputs 11, cards 13, modals 15. */
+  --ml-radius-xs: 6px;
+  --ml-radius-sm: 8px;
+  --ml-radius: 10px;
+  --ml-radius-md: 10px;
+  --ml-radius-lg: 13px;
+  --ml-radius-xl: 15px;
+  --ml-radius-2xl: 18px;
+  --ml-radius-full: 999px;
+}
+
+/* ---- Keyframes (adopted into every shadow root via melodic-styles) -------- */
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+@keyframes equalize {
+  to { transform: scaleY(0.45); }
+}
+@keyframes reel-spin {
+  to { transform: rotate(360deg); }
+}
+
+.spin {
+  animation: spin 800ms linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ---- Base + scrollbars ---------------------------------------------------- */
+html,
+body {
+  min-width: 320px;
+  min-height: 100%;
+  margin: 0;
+}
+
+body {
+  min-height: 100vh;
+  min-height: 100dvh;
+  background: var(--td-bg);
+  color: var(--td-text);
+  font-family: var(--ml-font-sans);
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+}
+
+::-webkit-scrollbar-thumb {
+  border: 3px solid var(--td-panel);
+  border-radius: 999px;
+  background: var(--td-border-strong);
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* Shared focus treatment for bespoke controls inside shadow roots. */
+button:focus-visible,
+input:focus-visible {
+  outline: 2px solid var(--td-accent);
+  outline-offset: 3px;
+}
+
+button:disabled,
+input:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}

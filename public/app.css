@@ -1,0 +1,200 @@
+/* =============================================================================
+   Shared component primitives — adopted into every component's shadow root via
+   the `melodic-styles` link (see bootstrap-styles.ts). Anything used by more
+   than one component lives here; single-component rules live in that
+   component's own styles block.
+   ============================================================================= */
+
+/* ---- Buttons -------------------------------------------------------------- */
+button,
+input {
+  font: inherit;
+}
+
+button {
+  color: inherit;
+}
+
+.button {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 10px;
+  cursor: pointer;
+  font-weight: 650;
+  transition: background-color 150ms ease, transform 150ms ease;
+}
+
+.button--primary {
+  height: 48px;
+  padding: 0 24px;
+  color: var(--td-ink);
+  background: var(--td-accent);
+}
+
+.button--primary:hover {
+  background: var(--td-accent-hover);
+}
+
+.button--primary:active {
+  transform: translateY(1px);
+}
+
+.button--primary:focus-visible {
+  outline-color: #eeeae3;
+}
+
+.button--small {
+  min-height: 38px;
+  height: 38px;
+  margin-top: 4px;
+  padding: 0 18px;
+  font-size: 13px;
+}
+
+.button--ghost {
+  height: 40px;
+  padding: 0 18px;
+  color: var(--td-muted);
+  background: transparent;
+  border: 1px solid var(--td-border-strong);
+}
+
+.button--ghost:hover {
+  color: var(--td-text);
+  background: var(--td-raised);
+}
+
+.button--danger {
+  height: 40px;
+  padding: 0 18px;
+  color: #fff;
+  background: var(--td-danger);
+}
+
+.button--danger:hover {
+  background: var(--td-danger-hover);
+}
+
+/* ---- Inputs --------------------------------------------------------------- */
+.input {
+  min-width: 0;
+  height: 48px;
+  flex: 1;
+  padding: 0 16px;
+  border: 1px solid var(--td-border-strong);
+  border-radius: 11px;
+  outline: none;
+  color: var(--td-text);
+  background: var(--td-well);
+  font-size: 14px;
+  transition: border-color 150ms ease, box-shadow 150ms ease;
+}
+
+.input::placeholder {
+  color: #777167;
+}
+
+.input:hover {
+  border-color: #4a453e;
+}
+
+.input:focus {
+  border-color: var(--td-accent);
+  box-shadow: 0 0 0 3px var(--td-accent-glow);
+}
+
+.input--error {
+  border-color: #a05548;
+}
+
+/* ---- Modal shell (mixtape picker, shortcuts, confirm) --------------------- */
+.modal-backdrop {
+  position: fixed;
+  z-index: 40;
+  display: grid;
+  inset: 0;
+  padding: 24px;
+  place-items: center;
+  background: rgb(10 9 7 / 62%);
+  backdrop-filter: blur(3px);
+}
+
+.modal {
+  display: flex;
+  width: min(100%, 420px);
+  max-height: min(72vh, 560px);
+  flex-direction: column;
+  gap: 14px;
+  padding: 18px;
+  border: 1px solid var(--td-border-strong);
+  border-radius: 15px;
+  background: var(--td-panel);
+  box-shadow: 0 24px 60px rgb(0 0 0 / 45%);
+}
+
+.modal__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.modal__title {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 3px;
+  text-align: left;
+}
+
+.modal__title strong {
+  font-size: 15px;
+  font-weight: 650;
+}
+
+.modal__title span {
+  overflow: hidden;
+  color: var(--td-muted);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.modal__close {
+  display: grid;
+  width: 30px;
+  height: 30px;
+  flex: 0 0 auto;
+  place-items: center;
+  border: 0;
+  border-radius: 8px;
+  color: var(--td-muted);
+  background: transparent;
+  cursor: pointer;
+}
+
+.modal__close:hover {
+  color: var(--td-text);
+  background: var(--td-raised);
+}
+
+.modal__close svg {
+  width: 15px;
+  height: 15px;
+}
+
+/* ---- Shared bits ---------------------------------------------------------- */
+.eyebrow,
+.track-details__label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  color: var(--td-accent-soft);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.13em;
+}
