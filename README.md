@@ -5,7 +5,7 @@
 [![CI](https://github.com/MelodicDevelopment/tapedeck/actions/workflows/ci.yml/badge.svg)](https://github.com/MelodicDevelopment/tapedeck/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-8b7ff0.svg)](LICENSE)
 [![Built with Tauri 2](https://img.shields.io/badge/Tauri-2-24C8DB?logo=tauri&logoColor=white)](https://v2.tauri.app)
-[![Melodic JS](https://img.shields.io/badge/Melodic_JS-3-8b7ff0)](https://github.com/MelodicDevelopment/melodic)
+[![Melodic JS](https://img.shields.io/badge/Melodic_JS-3-8b7ff0)](https://framework.melodic.dev)
 [![Rust](https://img.shields.io/badge/Rust-stable-DEA584?logo=rust&logoColor=white)](https://www.rust-lang.org)
 
 ![Tapedeck welcome screen with saved channels and mixtapes](web/screenshot.png)
@@ -68,7 +68,7 @@ Tapedeck only ever reads public channel/playlist/video data, so YouTube access i
 | Layer | Choice | Why |
 |---|---|---|
 | Shell | Tauri 2 (Rust) | Uses the OS webview instead of bundling Chromium — small binary, low idle memory |
-| UI | Melodic JS (web components + signals) + TypeScript + Vite | No virtual DOM, native browser APIs, typed end to end |
+| UI | [Melodic JS](https://framework.melodic.dev) (web components + signals) + TypeScript + Vite | No virtual DOM, native browser APIs, typed end to end |
 | Playback | YouTube IFrame Player API | Official, visible embed — compliant playback with ads/analytics intact |
 | Data | YouTube Data API v3 | Called directly from the Rust host with a build-embedded API key (public data only, no user auth) |
 | Auth | OAuth installed-app flow | System browser + PKCE + loopback callback + state validation |
