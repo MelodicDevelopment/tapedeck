@@ -272,6 +272,92 @@ describe('store actions (browser build)', () => {
     expect(player.queueTrackId()).toBe('trackA')
   })
 
+  it('flushes the outgoing source\'s resume position when switching sources', async () => {
+    // Regression: the flush must target the OLD source, before the new
+    // source's signals are set (React flushed on unmount with old refs).
+    // Loaded by its own sourceUrl so the library entry and the progress
+    // target share a key, as the real resolver guarantees.
+    await actions.handleLoad(apiPlaylist.sourceUrl)
+    player.reportProgress(50, 213)
+
+    library.set({
+      ...library(),
+      sources: [
+        ...library().sources,
+        {
+          url: twoTrackPlaylist.sourceUrl,
+          name: twoTrackPlaylist.name,
+          kind: twoTrackPlaylist.kind,
+          thumbnail: '',
+          savedAt: new Date(0).toISOString(),
+          tracks: twoTrackPlaylist.tracks,
+        },
+      ],
+    })
+    actions.openSavedSource(twoTrackPlaylist.sourceUrl)
+
+    const first = library().sources.find((entry) => entry.url === apiPlaylist.sourceUrl)
+    expect(first?.lastTrackId).toBe('dQw4w9WgXcQ')
+    expect(first?.lastPositionSecs).toBe(50)
+    const second = library().sources.find((entry) => entry.url === twoTrackPlaylist.sourceUrl)
+    expect(second?.lastPositionSecs).toBeUndefined()
+  })
+
+  it('silently refreshes an opened saved source in the background and follows the current track', async () => {
+    const reordered = {
+      ...twoTrackPlaylist,
+      tracks: [twoTrackPlaylist.tracks[1], twoTrackPlaylist.tracks[0]],
+    }
+    stubResolve(reordered)
+    library.set({
+      ...library(),
+      sources: [
+        {
+          url: twoTrackPlaylist.sourceUrl,
+          name: twoTrackPlaylist.name,
+          kind: twoTrackPlaylist.kind,
+          thumbnail: '',
+          savedAt: new Date(0).toISOString(),
+          tracks: twoTrackPlaylist.tracks,
+        },
+      ],
+    })
+
+    actions.openSavedSource(twoTrackPlaylist.sourceUrl)
+    expect(player.queueTrackId()).toBe('trackA')
+
+    // Let the background re-resolve land and swap in the fresh order.
+    await vi.waitFor(() => {
+      expect(activePlaylist()?.tracks[0].id).toBe('trackB')
+    })
+    // Still on the same track, now at its new position.
+    expect(player.queueTrackId()).toBe('trackA')
+    expect(player.currentIndex()).toBe(1)
+    // The cache was updated too.
+    expect(library().sources[0].tracks[0].id).toBe('trackB')
+  })
+
+  it('clamps media-control seek and maps setVolume from 0-1 to 0-100', async () => {
+    await actions.handleLoad('https://www.youtube.com/@lofihiphopmusic')
+    player.duration.set(213)
+
+    player.handleMediaControl({ action: 'seek', value: 9999 })
+    expect(player.elapsed()).toBe(213)
+
+    player.handleMediaControl({ action: 'seekBy', value: -9999 })
+    expect(player.elapsed()).toBe(0)
+
+    player.handleMediaControl({ action: 'setVolume', value: 0.5 })
+    expect(player.volume()).toBe(50)
+    player.handleMediaControl({ action: 'setVolume', value: 2 })
+    expect(player.volume()).toBe(100)
+
+    player.handleMediaControl({ action: 'pause' })
+    expect(player.playing()).toBe(false)
+    player.handleMediaControl({ action: 'toggle' })
+    expect(player.playing()).toBe(true)
+  })
+
   it('keeps the player behind the welcome overlay and returns to it', async () => {
     await actions.handleLoad('https://www.youtube.com/@lofihiphopmusic')
     actions.changeSource()

@@ -67,7 +67,11 @@ function flush(): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, 0))
 }
 
+/** The last created fake player and the YT API calls it received. */
+let ytCalls: string[] = []
+
 function installFakeYouTubePlayer(): void {
+  ytCalls = []
   class FakePlayer {
     private _iframe: HTMLIFrameElement
 
@@ -89,10 +93,21 @@ function installFakeYouTubePlayer(): void {
       return 213
     }
 
-    public setVolume(): void {}
-    public playVideo(): void {}
-    public pauseVideo(): void {}
-    public seekTo(): void {}
+    public setVolume(volume: number): void {
+      ytCalls.push(`setVolume:${volume}`)
+    }
+
+    public playVideo(): void {
+      ytCalls.push('playVideo')
+    }
+
+    public pauseVideo(): void {
+      ytCalls.push('pauseVideo')
+    }
+
+    public seekTo(seconds: number): void {
+      ytCalls.push(`seekTo:${seconds}`)
+    }
   }
 
   Reflect.set(window, 'YT', {
@@ -206,6 +221,50 @@ describe('td-app (DOM)', () => {
     backToPlayer.click()
     await flush()
     expect(deepQuery('.welcome-shell--overlay')).toBeFalsy()
+  })
+
+  it('relays play/pause, volume, and seek to the embedded YT player', async () => {
+    const { playing, seek, volume } = await import('../../store/player')
+    await mountApp()
+    await loadPlaylist()
+    // Autoplay applied at onReady.
+    expect(ytCalls).toContain('playVideo')
+    ytCalls = []
+
+    playing.set(false)
+    await flush()
+    expect(ytCalls).toContain('pauseVideo')
+
+    volume.set(31)
+    await flush()
+    expect(ytCalls).toContain('setVolume:31')
+
+    playing.set(true)
+    await flush()
+    seek(42)
+    await flush()
+    expect(ytCalls).toContain('seekTo:42')
+  })
+
+  it('closes the source switcher on an outside click and on Escape', async () => {
+    await mountApp()
+    await loadPlaylist()
+
+    const trigger = deepQuery('.source-card__trigger') as HTMLButtonElement
+    trigger.click()
+    await flush()
+    expect(deepQuery('.source-switcher')).toBeTruthy()
+
+    document.body.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }))
+    await flush()
+    expect(deepQuery('.source-switcher')).toBeFalsy()
+
+    trigger.click()
+    await flush()
+    expect(deepQuery('.source-switcher')).toBeTruthy()
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
+    await flush()
+    expect(deepQuery('.source-switcher')).toBeFalsy()
   })
 
   it('adds a track to a new mixtape through the picker modal', async () => {

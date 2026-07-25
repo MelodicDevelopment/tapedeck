@@ -130,6 +130,31 @@ describe('store actions (desktop build)', () => {
     expect(player.track()?.id).toBe('r1')
   })
 
+  it('drives playback from the keyboard shortcuts wired at bootstrap', () => {
+    actions.openSavedSource('https://www.youtube.com/@RemoteChannel')
+    expect(hasPlayer()).toBe(true)
+
+    const wasPlaying = player.playing()
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: ' ' }))
+    expect(player.playing()).toBe(!wasPlaying)
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: ' ' }))
+    expect(player.playing()).toBe(wasPlaying)
+
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowUp' }))
+    expect(player.volume()).toBe(75)
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown' }))
+    expect(player.volume()).toBe(70)
+
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 's', shiftKey: true }))
+    expect(player.shuffle()).toBe(true)
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 's', shiftKey: true }))
+    expect(player.shuffle()).toBe(false)
+
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: '?' }))
+    expect(player.shortcutsOpen()).toBe(true)
+    player.shortcutsOpen.set(false)
+  })
+
   it('blocks URL loading while signed out', async () => {
     authStatus.set({ configured: true, authenticated: false })
     await actions.handleLoad('https://www.youtube.com/@lofihiphopmusic')
