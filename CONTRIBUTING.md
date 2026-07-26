@@ -42,4 +42,4 @@ Open an issue with:
 
 ## Security
 
-If you find a vulnerability (especially around the OAuth flow or the webview command surface), please **do not** open a public issue — email the maintainer instead so it can be fixed before disclosure.
+If you find a vulnerability (especially around the OAuth flow or the webview command surface), please **do not** open a public issue — see [SECURITY.md](SECURITY.md) for how to report it privately so it can be fixed before disclosure.
