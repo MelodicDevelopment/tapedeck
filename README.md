@@ -24,7 +24,7 @@ Videos always play through the visible, official YouTube embedded player. Tapede
 
 ## Installation
 
-Signed, notarized builds for macOS, Windows, and Linux are on the [Releases page](https://github.com/MelodicDevelopment/tapedeck/releases/latest) — download and run.
+Signed, notarized builds for macOS, Windows, and Linux are on the [Releases page](https://github.com/MelodicDevelopment/tapedeck/releases/latest) — download and run. Once installed, Tapedeck keeps itself up to date: new releases download in the background and a "Restart to update" prompt appears when one is ready.
 
 Prefer to build it yourself (needed if you want your own Google OAuth client, or to contribute)? It's about two minutes once the toolchain is installed.
 

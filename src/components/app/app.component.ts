@@ -1,11 +1,11 @@
 import { MelodicComponent } from '@melodicdev/core'
-import { dismissUpdate } from '../../store/actions'
+import { dismissUpdate, restartToUpdate } from '../../store/actions'
 import {
   confirmDeleteMixtape,
   desktop,
   hasPlayer,
+  stagedUpdate,
   updateDismissed,
-  updateInfo,
   view,
 } from '../../store/state'
 import { appTemplate } from './app.template'
@@ -24,7 +24,7 @@ import { appStyles } from './app.styles'
 export class AppComponent {
   public view = view
   public hasPlayer = hasPlayer
-  public updateInfo = updateInfo
+  public stagedUpdate = stagedUpdate
   public updateDismissed = updateDismissed
   public confirmDeleteMixtape = confirmDeleteMixtape
 
@@ -32,5 +32,9 @@ export class AppComponent {
 
   public dismissUpdate(): void {
     dismissUpdate()
+  }
+
+  public restartToUpdate(): void {
+    restartToUpdate()
   }
 }

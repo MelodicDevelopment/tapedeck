@@ -68,6 +68,12 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+          # Updater artifact signing (tauri-plugin-updater). With these set,
+          # tauri-action also signs the updater archives and generates the
+          # latest.json manifest it uploads alongside the release assets.
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+
           # Embedded at build time (see src-tauri/build.rs) so the shipped
           # app can complete Google sign-in.
           TAPEDECK_GOOGLE_CLIENT_ID: ${{ secrets.TAPEDECK_GOOGLE_CLIENT_ID }}

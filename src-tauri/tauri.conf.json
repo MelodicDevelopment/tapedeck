@@ -15,8 +15,17 @@
       "csp": "default-src 'self'; base-uri 'self'; object-src 'none'; script-src 'self' https://www.youtube.com https://s.ytimg.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: https://i.ytimg.com https://yt3.ggpht.com https://*.googleusercontent.com; frame-src https://www.youtube.com https://www.youtube-nocookie.com; connect-src 'self' http://127.0.0.1:* ws://127.0.0.1:* https:; media-src https: blob:"
     }
   },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDg3RTg3NEU0MjA2MUI5RkYKUldUL3VXRWc1SFRvaHlaWHVxd20yZmF4bXlYeVNTQWdBV1JSMVFhSzVPWDJrYmtkRjRuU3hWSHMK",
+      "endpoints": [
+        "https://github.com/MelodicDevelopment/tapedeck/releases/latest/download/latest.json"
+      ]
+    }
+  },
   "bundle": {
     "active": true,
+    "createUpdaterArtifacts": true,
     "category": "Music",
     "copyright": "Copyright © 2026 Melodic Development",
     "shortDescription": "A focused YouTube music player",

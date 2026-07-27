@@ -4,7 +4,7 @@ import { DesktopCommandError, getGoogleAuthStatus, signInWithGoogle, signOutGoog
 import { exportLibrary, loadLibrary, saveLibrary } from '../api/library'
 import { onMediaControl, updateMediaMetadata, updateMediaPlayback } from '../api/media'
 import { syncLibrary } from '../api/sync'
-import { checkForUpdate } from '../api/updates'
+import { restartToUpdate as installStagedUpdate, stageUpdate } from '../api/updates'
 import { resolveVideo, resolveYouTubeSource, TapedeckApiError } from '../api/youtube'
 import { thumbnailUrl, type Track } from '../data/mockPlaylist'
 import {
@@ -37,9 +37,9 @@ import {
   playlist,
   syncDevices,
   syncError,
+  stagedUpdate,
   syncStatus,
   updateDismissed,
-  updateInfo,
   url,
   view,
 } from './state'
@@ -113,6 +113,12 @@ export function setUrl(value: string): void {
 
 export function dismissUpdate(): void {
   updateDismissed.set(true)
+}
+
+export function restartToUpdate(): void {
+  installStagedUpdate().catch(() => {
+    error.set('Tapedeck could not install the update. Quit and reopen to try again.')
+  })
 }
 
 export function closeOverlay(): void {
@@ -408,8 +414,10 @@ export async function bootstrap(): Promise<void> {
         )
       })
 
-    checkForUpdate()
-      .then((info) => updateInfo.set(info))
+    // Silent auto-update: download in the background; the "Restart to
+    // update" pill only appears once the new version is fully staged.
+    stageUpdate()
+      .then((update) => stagedUpdate.set(update))
       .catch(() => {})
 
     // A related-video click inside the embedded YouTube player itself (its

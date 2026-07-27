@@ -3,19 +3,17 @@ import { icon } from '../../ui/icons'
 import type { AppComponent } from './app.component'
 
 export function appTemplate(c: AppComponent): TemplateResult {
-  const update = c.updateInfo()
+  const update = c.stagedUpdate()
   const hasPlayer = c.hasPlayer()
   return html`
     ${c.showTitleBar ? html`<td-title-bar></td-title-bar>` : html``}
     ${update && !c.updateDismissed()
       ? html`
           <div class="update-banner" role="status">
-            <span>
-              Tapedeck ${update.latestVersion} is available (you have ${update.currentVersion}).
-            </span>
-            <a href=${update.releaseUrl} target="_blank" rel="noreferrer" class="update-banner__link">
-              Get the update
-            </a>
+            <span>Tapedeck ${update.version} is ready to install.</span>
+            <button type="button" class="update-banner__restart" @click=${() => c.restartToUpdate()}>
+              Restart to update
+            </button>
             <button
               type="button"
               class="update-banner__dismiss"

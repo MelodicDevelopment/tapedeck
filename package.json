@@ -27,6 +27,8 @@
   "dependencies": {
     "@melodicdev/core": "^3.0.0",
     "@tauri-apps/api": "^2.11.1",
+    "@tauri-apps/plugin-process": "^2.3.1",
+    "@tauri-apps/plugin-updater": "^2.10.1",
     "dotenv": "^17.2.3",
     "express": "^5.1.0"
   },

@@ -1,73 +1,89 @@
-import { getVersion } from '@tauri-apps/api/app'
-import { afterEach, describe, expect, it, vi } from 'vitest'
-import { checkForUpdate } from './updates'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-vi.mock('@tauri-apps/api/app', () => ({
-  getVersion: vi.fn(),
-}))
+const check = vi.fn()
+const relaunch = vi.fn()
 
-function mockRelease(body: unknown, status = 200) {
-  vi.stubGlobal('fetch', vi.fn().mockResolvedValue(
-    new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } }),
-  ))
+vi.mock('@tauri-apps/plugin-updater', () => ({ check }))
+vi.mock('@tauri-apps/plugin-process', () => ({ relaunch }))
+
+/** A fresh copy of the module per test — staging state lives at module level. */
+async function loadUpdates() {
+  return await import('./updates')
 }
 
-describe('checkForUpdate', () => {
-  afterEach(() => {
-    vi.unstubAllGlobals()
+function mockUpdate(overrides: Partial<Record<'download' | 'install', unknown>> = {}) {
+  return {
+    currentVersion: '0.3.0',
+    version: '0.4.0',
+    download: vi.fn().mockResolvedValue(undefined),
+    install: vi.fn().mockResolvedValue(undefined),
+    ...overrides,
+  }
+}
+
+describe('stageUpdate', () => {
+  beforeEach(() => {
+    vi.resetModules()
+    vi.clearAllMocks()
   })
 
-  it('returns update info when a newer release is published', async () => {
-    vi.mocked(getVersion).mockResolvedValue('0.2.1')
-    mockRelease({ tag_name: 'v0.2.2', html_url: 'https://github.com/MelodicDevelopment/tapedeck/releases/tag/v0.2.2' })
+  it('downloads an available update and reports the staged versions', async () => {
+    const update = mockUpdate()
+    check.mockResolvedValue(update)
+    const { stageUpdate } = await loadUpdates()
 
-    expect(await checkForUpdate()).toEqual({
-      currentVersion: '0.2.1',
-      latestVersion: '0.2.2',
-      releaseUrl: 'https://github.com/MelodicDevelopment/tapedeck/releases/tag/v0.2.2',
-    })
+    expect(await stageUpdate()).toEqual({ currentVersion: '0.3.0', version: '0.4.0' })
+    expect(update.download).toHaveBeenCalledOnce()
   })
 
   it('returns null when already on the latest version', async () => {
-    vi.mocked(getVersion).mockResolvedValue('0.2.2')
-    mockRelease({ tag_name: 'v0.2.2', html_url: 'https://example.com' })
+    check.mockResolvedValue(null)
+    const { stageUpdate } = await loadUpdates()
 
-    expect(await checkForUpdate()).toBeNull()
+    expect(await stageUpdate()).toBeNull()
   })
 
-  it('returns null when the installed version is ahead of the published release (e.g. a local dev build)', async () => {
-    vi.mocked(getVersion).mockResolvedValue('0.3.0')
-    mockRelease({ tag_name: 'v0.2.2', html_url: 'https://example.com' })
+  it('returns null when the manifest check fails (e.g. offline)', async () => {
+    check.mockRejectedValue(new Error('offline'))
+    const { stageUpdate } = await loadUpdates()
 
-    expect(await checkForUpdate()).toBeNull()
+    expect(await stageUpdate()).toBeNull()
   })
 
-  it('compares version segments numerically, not lexicographically', async () => {
-    vi.mocked(getVersion).mockResolvedValue('0.2.9')
-    mockRelease({ tag_name: 'v0.2.10', html_url: 'https://example.com' })
+  it('returns null and stages nothing when the download fails', async () => {
+    const update = mockUpdate({ download: vi.fn().mockRejectedValue(new Error('disk full')) })
+    check.mockResolvedValue(update)
+    const { stageUpdate, restartToUpdate } = await loadUpdates()
 
-    const info = await checkForUpdate()
-    expect(info?.latestVersion).toBe('0.2.10')
+    expect(await stageUpdate()).toBeNull()
+
+    await restartToUpdate()
+    expect(update.install).not.toHaveBeenCalled()
+    expect(relaunch).not.toHaveBeenCalled()
+  })
+})
+
+describe('restartToUpdate', () => {
+  beforeEach(() => {
+    vi.resetModules()
+    vi.clearAllMocks()
   })
 
-  it('returns null on a network failure', async () => {
-    vi.mocked(getVersion).mockResolvedValue('0.2.1')
-    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('offline')))
+  it('installs the staged update and relaunches', async () => {
+    const update = mockUpdate()
+    check.mockResolvedValue(update)
+    const { stageUpdate, restartToUpdate } = await loadUpdates()
+    await stageUpdate()
 
-    expect(await checkForUpdate()).toBeNull()
+    await restartToUpdate()
+    expect(update.install).toHaveBeenCalledOnce()
+    expect(relaunch).toHaveBeenCalledOnce()
   })
 
-  it('returns null on a non-ok response', async () => {
-    vi.mocked(getVersion).mockResolvedValue('0.2.1')
-    mockRelease({}, 403)
+  it('does nothing when no update has been staged', async () => {
+    const { restartToUpdate } = await loadUpdates()
 
-    expect(await checkForUpdate()).toBeNull()
-  })
-
-  it('returns null when the response is missing tag_name or html_url', async () => {
-    vi.mocked(getVersion).mockResolvedValue('0.2.1')
-    mockRelease({})
-
-    expect(await checkForUpdate()).toBeNull()
+    await restartToUpdate()
+    expect(relaunch).not.toHaveBeenCalled()
   })
 })

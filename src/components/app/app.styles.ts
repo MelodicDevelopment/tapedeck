@@ -20,10 +20,16 @@ export const appStyles = (): TemplateResult => css`
     font-weight: 550;
   }
 
-  .update-banner__link {
+  .update-banner__restart {
+    padding: 0;
+    border: 0;
+    background: transparent;
     color: var(--td-bg);
+    font: inherit;
+    font-weight: 650;
     text-decoration: underline;
     white-space: nowrap;
+    cursor: pointer;
   }
 
   .update-banner__dismiss {

@@ -18,7 +18,7 @@ export function resetStores(): void {
   state.syncStatus.set('idle')
   state.syncDevices.set([])
   state.syncError.set('')
-  state.updateInfo.set(null)
+  state.stagedUpdate.set(null)
   state.updateDismissed.set(false)
 
   player.currentIndex.set(0)

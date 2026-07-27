@@ -1,7 +1,7 @@
 import { computed, signal } from '@melodicdev/core'
 import { isDesktopApp, type AuthStatus } from '../api/auth'
 import type { SyncedDevice } from '../api/sync'
-import type { UpdateInfo } from '../api/updates'
+import type { StagedUpdate } from '../api/updates'
 import type { Playlist } from '../data/mockPlaylist'
 import { mixtapeToPlaylist, type Library, type Mixtape, emptyLibrary } from '../lib/library'
 
@@ -31,7 +31,8 @@ export const syncStatus = signal<SyncStatus>('idle')
 export const syncDevices = signal<SyncedDevice[]>([])
 export const syncError = signal('')
 
-export const updateInfo = signal<UpdateInfo | null>(null)
+/** Set once a newer release has been downloaded and is ready to install. */
+export const stagedUpdate = signal<StagedUpdate | null>(null)
 export const updateDismissed = signal(false)
 
 export const playingMixtape = computed<Mixtape | null>(() => {

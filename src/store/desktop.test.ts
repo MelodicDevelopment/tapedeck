@@ -16,8 +16,21 @@ vi.mock('@tauri-apps/api/event', () => ({
   listen: vi.fn().mockResolvedValue(() => {}),
 }))
 
-vi.mock('@tauri-apps/api/app', () => ({
-  getVersion: vi.fn().mockResolvedValue('0.2.1'),
+const { stagedDownload } = vi.hoisted(() => ({
+  stagedDownload: vi.fn().mockResolvedValue(undefined),
+}))
+
+vi.mock('@tauri-apps/plugin-updater', () => ({
+  check: vi.fn().mockResolvedValue({
+    currentVersion: '0.2.1',
+    version: '0.2.2',
+    download: stagedDownload,
+    install: vi.fn(),
+  }),
+}))
+
+vi.mock('@tauri-apps/plugin-process', () => ({
+  relaunch: vi.fn(),
 }))
 
 import { invoke } from '@tauri-apps/api/core'
@@ -30,9 +43,9 @@ import {
   error,
   hasPlayer,
   library,
+  stagedUpdate,
   syncDevices,
   syncStatus,
-  updateInfo,
 } from './state'
 
 const remoteLibrary = {
@@ -75,18 +88,6 @@ describe('store actions (desktop build)', () => {
       }
       throw new Error(`Unexpected command: ${String(command)}`)
     })
-    vi.stubGlobal(
-      'fetch',
-      vi.fn().mockResolvedValue(
-        new Response(
-          JSON.stringify({
-            tag_name: 'v0.2.2',
-            html_url: 'https://github.com/MelodicDevelopment/tapedeck/releases/tag/v0.2.2',
-          }),
-          { status: 200, headers: { 'content-type': 'application/json' } },
-        ),
-      ),
-    )
     await actions.bootstrap()
   })
 
@@ -103,11 +104,12 @@ describe('store actions (desktop build)', () => {
     expect(syncDevices().map((device) => device.name)).toEqual(['MacBook Pro', 'Mac mini'])
   })
 
-  it('surfaces a newer published release as update info', async () => {
+  it('downloads a newer release in the background and stages it', async () => {
     await vi.waitFor(() => {
-      expect(updateInfo()?.latestVersion).toBe('0.2.2')
-      expect(updateInfo()?.currentVersion).toBe('0.2.1')
+      expect(stagedUpdate()?.version).toBe('0.2.2')
+      expect(stagedUpdate()?.currentVersion).toBe('0.2.1')
     })
+    expect(stagedDownload).toHaveBeenCalledOnce()
   })
 
   it('plays a related-video click inline via the Tauri event', async () => {

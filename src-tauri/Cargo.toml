@@ -29,7 +29,9 @@ souvlaki = "0.8.3"
 tauri = { version = "2", features = ["tray-icon", "image-png"] }
 tauri-plugin-dialog = "2"
 tauri-plugin-localhost = "2"
+tauri-plugin-process = "2"
 tauri-plugin-single-instance = "2"
+tauri-plugin-updater = "2"
 tokio = { version = "1.53.0", features = ["time"] }
 url = "2"
 
