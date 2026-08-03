@@ -26,6 +26,25 @@ Videos always play through the visible, official YouTube embedded player. Tapede
 
 Signed, notarized builds for macOS, Windows, and Linux are on the [Releases page](https://github.com/MelodicDevelopment/tapedeck/releases/latest) — download and run. Once installed, Tapedeck keeps itself up to date: new releases download in the background and a "Restart to update" prompt appears when one is ready.
 
+### Linux: video codecs
+
+The Linux build renders in WebKitGTK, which decodes all media through GStreamer. If the player shows a gray box reading *"Your browser can't play this video"*, the codec plugins are missing. The `.deb` and `.rpm` pull them in as dependencies and the AppImage ships its own copy, but on a minimal desktop you may need them explicitly:
+
+```bash
+# Debian / Ubuntu
+sudo apt install gstreamer1.0-plugins-base gstreamer1.0-plugins-good \
+  gstreamer1.0-plugins-bad gstreamer1.0-libav
+
+# Fedora (H.264 lives in RPM Fusion)
+sudo dnf install gstreamer1-plugins-base gstreamer1-plugins-good gstreamer1-plugins-bad-free
+sudo dnf install gstreamer1-libav   # requires RPM Fusion Free
+
+# Arch
+sudo pacman -S gst-plugins-base gst-plugins-good gst-plugins-bad gst-libav
+```
+
+Restart Tapedeck afterward — GStreamer scans for plugins at startup.
+
 Prefer to build it yourself (needed if you want your own Google OAuth client, or to contribute)? It's about two minutes once the toolchain is installed.
 
 ### Prerequisites
