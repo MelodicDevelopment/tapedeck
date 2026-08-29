@@ -1,6 +1,6 @@
 import { MelodicComponent } from '@melodicdev/core'
 import type { Track } from '../../data/mockPlaylist'
-import { changeSource, reorderMixtapeTrack, toggleMixtapeTrack } from '../../store/actions'
+import { changeSource, hideSourceTrack, reorderMixtapeTrack, toggleMixtapeTrack, unhideSourceTrack } from '../../store/actions'
 import {
   currentIndex,
   externalVideo,
@@ -16,7 +16,7 @@ import {
   track,
   unavailable,
 } from '../../store/player'
-import { activePlaylist, authAction, authStatus, playingMixtapeId } from '../../store/state'
+import { activePlaylist, authAction, authStatus, hiddenTracks, playingMixtapeId } from '../../store/state'
 import { playerScreenTemplate } from './player-screen.template'
 import { playerScreenStyles } from './player-screen.styles'
 
@@ -47,6 +47,10 @@ export class PlayerScreenComponent {
   public pickerTrack = pickerTrack
   public track = track
   public unavailable = unavailable
+  public hiddenTracks = hiddenTracks
+
+  /** Whether the "Hidden" section at the bottom of the queue is expanded. */
+  public showHidden = false
 
   // CSS :hover never re-evaluates on scroll, only on actual pointer
   // movement — scrolling a row under a stationary cursor leaves it (or the
@@ -113,6 +117,18 @@ export class PlayerScreenComponent {
   public removeFromMixtape(track: Track): void {
     const mixtapeId = this.playingMixtapeId()
     if (mixtapeId) toggleMixtapeTrack(mixtapeId, track)
+  }
+
+  public hideTrack(track: Track): void {
+    hideSourceTrack(track.id)
+  }
+
+  public unhideTrack(track: Track): void {
+    unhideSourceTrack(track.id)
+  }
+
+  public toggleHidden(): void {
+    this.showHidden = !this.showHidden
   }
 
   public clearHover(): void {

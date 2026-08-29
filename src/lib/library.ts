@@ -9,6 +9,8 @@ export type SavedSource = {
   savedAt: string
   /** Cached so the library/"Continue listening" can open instantly, then revalidate in the background. */
   tracks: Track[]
+  /** Videos the user has hidden from this source's queue. They stay in `tracks` so they can be unhidden. */
+  hiddenTrackIds: string[]
   lastTrackId?: string
   lastPositionSecs?: number
   lastPlayedAt?: string
@@ -112,6 +114,9 @@ export function normalizeLibrary(value: unknown): Library {
         thumbnail: typeof source.thumbnail === 'string' ? source.thumbnail : '',
         savedAt: typeof source.savedAt === 'string' ? source.savedAt : new Date().toISOString(),
         tracks: Array.isArray(source.tracks) ? source.tracks.filter(isTrack) : [],
+        hiddenTrackIds: Array.isArray(source.hiddenTrackIds)
+          ? source.hiddenTrackIds.filter((id): id is string => typeof id === 'string' && id.length > 0)
+          : [],
         lastTrackId: typeof source.lastTrackId === 'string' ? source.lastTrackId : undefined,
         lastPositionSecs:
           typeof source.lastPositionSecs === 'number' && Number.isFinite(source.lastPositionSecs)
@@ -174,12 +179,14 @@ export function normalizeLibrary(value: unknown): Library {
  */
 export function upsertSource(
   library: Library,
-  source: Omit<SavedSource, 'savedAt' | 'lastTrackId' | 'lastPositionSecs' | 'lastPlayedAt'>,
+  source: Omit<SavedSource, 'savedAt' | 'hiddenTrackIds' | 'lastTrackId' | 'lastPositionSecs' | 'lastPlayedAt'> &
+    Partial<Pick<SavedSource, 'hiddenTrackIds'>>,
 ): Library {
   const existing = library.sources.find((candidate) => candidate.url === source.url)
   const entry: SavedSource = {
     ...source,
     savedAt: new Date().toISOString(),
+    hiddenTrackIds: source.hiddenTrackIds ?? existing?.hiddenTrackIds ?? [],
     lastTrackId: existing?.lastTrackId,
     lastPositionSecs: existing?.lastPositionSecs,
     lastPlayedAt: existing?.lastPlayedAt,
@@ -196,6 +203,47 @@ export function removeSource(library: Library, url: string): Library {
       { id: url, deletedAt: new Date().toISOString() },
     ]),
   }
+}
+
+/**
+ * Hide (or unhide) one video in a saved source, so the queue only shows the
+ * videos the user actually wants from that channel/playlist. Bumps savedAt
+ * so the change wins the next sync merge.
+ */
+export function setSourceTrackHidden(
+  library: Library,
+  sourceUrl: string,
+  trackId: string,
+  hidden: boolean,
+): Library {
+  return {
+    ...library,
+    sources: library.sources.map((source) => {
+      if (source.url !== sourceUrl) return source
+      const already = source.hiddenTrackIds.includes(trackId)
+      if (already === hidden) return source
+      return {
+        ...source,
+        hiddenTrackIds: hidden
+          ? [...source.hiddenTrackIds, trackId]
+          : source.hiddenTrackIds.filter((id) => id !== trackId),
+        savedAt: new Date().toISOString(),
+      }
+    }),
+  }
+}
+
+/** The source's tracks split into the playable queue and the hidden set. */
+export function partitionSourceTracks(
+  tracks: Track[],
+  hiddenTrackIds: readonly string[],
+): { visible: Track[]; hidden: Track[] } {
+  if (hiddenTrackIds.length === 0) return { visible: tracks, hidden: [] }
+  const hiddenSet = new Set(hiddenTrackIds)
+  const visible: Track[] = []
+  const hidden: Track[] = []
+  for (const track of tracks) (hiddenSet.has(track.id) ? hidden : visible).push(track)
+  return { visible, hidden }
 }
 
 export function createMixtape(library: Library, name: string, firstTrack: Track): Library {

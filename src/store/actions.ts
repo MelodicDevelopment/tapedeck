@@ -15,6 +15,7 @@ import {
   recordPlaybackProgress,
   removeSource,
   reorderMixtapeTrack as libReorderMixtapeTrack,
+  setSourceTrackHidden,
   toggleMixtapeTrack as libToggleMixtapeTrack,
   touchLastPlayed,
   upsertSource,
@@ -189,21 +190,37 @@ export async function handleLoad(requestedUrl?: string): Promise<void> {
     const nextPlaylist = await resolveYouTubeSource(targetUrl, controller.signal)
     const previousQueueTrackId = player.queueTrackId()
     if (nextPlaylist.sourceUrl !== activeKey) flushProgressForCurrent()
-    playlist.set(nextPlaylist)
-    playingMixtapeId.set(null)
-    view.set('loaded')
-    mutateLibrary((current) =>
-      touchLastPlayed(
-        upsertSource(current, {
-          url: targetUrl,
+    // Saved under the canonical URL so the library entry, the playlist's
+    // sourceUrl, and the progress/hidden-track lookups all share one key.
+    const savedUrl = nextPlaylist.sourceUrl || targetUrl
+    mutateLibrary((current) => {
+      let next = current
+      const typed = targetUrl !== savedUrl ? current.sources.find((entry) => entry.url === targetUrl) : undefined
+      if (typed) {
+        // Migrate an entry saved under the URL as typed: carry its state over.
+        next = removeSource(next, targetUrl)
+        next = {
+          ...next,
+          sources: [
+            { ...typed, url: savedUrl },
+            ...next.sources.filter((entry) => entry.url !== savedUrl),
+          ],
+        }
+      }
+      return touchLastPlayed(
+        upsertSource(next, {
+          url: savedUrl,
           name: nextPlaylist.name,
           kind: nextPlaylist.kind,
           thumbnail: nextPlaylist.thumbnail || '',
           tracks: nextPlaylist.tracks,
         }),
-        { type: 'source', url: targetUrl },
-      ),
-    )
+        { type: 'source', url: savedUrl },
+      )
+    })
+    playlist.set(nextPlaylist)
+    playingMixtapeId.set(null)
+    view.set('loaded')
     if (nextPlaylist.sourceUrl === activeKey) {
       player.syncWithPlaylist(previousQueueTrackId)
     } else {
@@ -342,6 +359,25 @@ export function reorderMixtapeTrack(mixtapeId: string, fromIndex: number, toInde
   if (playingMixtapeId() === mixtapeId) {
     player.syncWithPlaylist(previousQueueTrackId)
   }
+}
+
+/** Hide a video from the loaded source's queue; playback moves on if it was current. */
+export function hideSourceTrack(trackId: string): void {
+  setTrackHidden(trackId, true)
+}
+
+export function unhideSourceTrack(trackId: string): void {
+  setTrackHidden(trackId, false)
+}
+
+function setTrackHidden(trackId: string, hidden: boolean): void {
+  const sourceUrl = playlist()?.sourceUrl
+  if (!sourceUrl || playingMixtapeId()) return
+  const previousQueueTrackId = player.queueTrackId()
+  // Never hide the last visible video — there'd be nothing left to play.
+  if (hidden && (activePlaylist()?.tracks.length ?? 0) <= 1) return
+  commitLibrary(setSourceTrackHidden(library(), sourceUrl, trackId, hidden))
+  player.syncWithPlaylist(previousQueueTrackId)
 }
 
 export function createMixtape(name: string, track: Track): void {

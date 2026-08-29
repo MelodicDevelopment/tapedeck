@@ -7,7 +7,9 @@ import {
   mergeLibrary,
   mixtapeToPlaylist,
   normalizeLibrary,
+  partitionSourceTracks,
   recordPlaybackProgress,
+  setSourceTrackHidden,
   removeSource,
   reorderMixtapeTrack,
   toggleMixtapeTrack,
@@ -23,6 +25,7 @@ const source = (url: string) => ({
   kind: 'YouTube channel',
   thumbnail: '',
   tracks: [] as Track[],
+  hiddenTrackIds: [] as string[],
 })
 
 describe('library sources', () => {
@@ -49,6 +52,44 @@ describe('library sources', () => {
     }
     expect(library.sources).toHaveLength(30)
     expect(library.sources[0].url).toBe('https://youtube.com/@channel39')
+  })
+})
+
+describe('hidden source tracks', () => {
+  const url = 'https://youtube.com/@a'
+  const seeded = () => upsertSource(emptyLibrary(), { ...source(url), tracks: [track('x'), track('y'), track('z')] })
+
+  it('hides and unhides a track, keeping it in the cached track list', () => {
+    let library = setSourceTrackHidden(seeded(), url, 'y', true)
+    expect(library.sources[0].hiddenTrackIds).toEqual(['y'])
+    expect(library.sources[0].tracks).toHaveLength(3)
+    library = setSourceTrackHidden(library, url, 'y', true)
+    expect(library.sources[0].hiddenTrackIds).toEqual(['y'])
+    library = setSourceTrackHidden(library, url, 'y', false)
+    expect(library.sources[0].hiddenTrackIds).toEqual([])
+  })
+
+  it('survives a metadata refresh of the source', () => {
+    let library = setSourceTrackHidden(seeded(), url, 'y', true)
+    library = upsertSource(library, { ...source(url), hiddenTrackIds: undefined, tracks: [track('x'), track('y')] })
+    expect(library.sources[0].hiddenTrackIds).toEqual(['y'])
+  })
+
+  it('partitions tracks into visible and hidden', () => {
+    const { visible, hidden } = partitionSourceTracks([track('x'), track('y'), track('z')], ['y'])
+    expect(visible.map((t) => t.id)).toEqual(['x', 'z'])
+    expect(hidden.map((t) => t.id)).toEqual(['y'])
+  })
+
+  it('normalizes missing or malformed hiddenTrackIds', () => {
+    const library = normalizeLibrary({
+      sources: [
+        { url, name: 'a', tracks: [] },
+        { url: 'https://youtube.com/@b', name: 'b', tracks: [], hiddenTrackIds: ['ok', 3, ''] },
+      ],
+    })
+    expect(library.sources[0].hiddenTrackIds).toEqual([])
+    expect(library.sources[1].hiddenTrackIds).toEqual(['ok'])
   })
 })
 

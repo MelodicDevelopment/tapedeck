@@ -678,6 +678,74 @@ export const playerScreenStyles = (): TemplateResult => css`
     height: 15px;
   }
 
+  .track-row--static {
+    cursor: default;
+  }
+
+  .track-item--hidden {
+    opacity: 0.6;
+  }
+
+  .track-item--hidden:hover,
+  .track-item--hidden:focus-within {
+    opacity: 1;
+  }
+
+  .track-item--hidden .track-item__action {
+    opacity: 1;
+  }
+
+  .hidden-section {
+    margin-top: 6px;
+    padding-top: 6px;
+    border-top: 1px solid var(--td-border, rgba(255, 255, 255, 0.08));
+  }
+
+  .hidden-section__toggle {
+    display: flex;
+    width: 100%;
+    align-items: center;
+    gap: 8px;
+    padding: 8px;
+    border: 0;
+    border-radius: 9px;
+    background: transparent;
+    color: var(--td-faint);
+    font: inherit;
+    font-size: 12px;
+    cursor: pointer;
+    text-align: left;
+  }
+
+  .hidden-section__toggle:hover {
+    color: var(--td-text);
+    background: var(--td-raised);
+  }
+
+  .hidden-section__toggle svg {
+    width: 14px;
+    height: 14px;
+    flex: 0 0 auto;
+  }
+
+  .hidden-section__toggle span {
+    flex: 1;
+  }
+
+  .hidden-section__chevron {
+    transition: transform 120ms ease;
+  }
+
+  .hidden-section__chevron--open {
+    transform: rotate(180deg);
+  }
+
+  .hidden-section__list {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
   .track-item__grip {
     display: grid;
     width: 18px;

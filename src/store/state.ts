@@ -2,8 +2,8 @@ import { computed, signal } from '@melodicdev/core'
 import { isDesktopApp, type AuthStatus } from '../api/auth'
 import type { SyncedDevice } from '../api/sync'
 import type { StagedUpdate } from '../api/updates'
-import type { Playlist } from '../data/mockPlaylist'
-import { mixtapeToPlaylist, type Library, type Mixtape, emptyLibrary } from '../lib/library'
+import type { Playlist, Track } from '../data/mockPlaylist'
+import { mixtapeToPlaylist, partitionSourceTracks, type Library, type Mixtape, emptyLibrary } from '../lib/library'
 
 export type View = 'welcome' | 'loading' | 'loaded'
 export type SyncStatus = 'idle' | 'syncing' | 'synced' | 'offline' | 'error'
@@ -40,10 +40,40 @@ export const playingMixtape = computed<Mixtape | null>(() => {
   return id ? library().mixtapes.find((entry) => entry.id === id) ?? null : null
 })
 
-/** What the player is actually playing: the active mixtape, else the loaded source. */
+/** The saved-library entry for the loaded source, if it has been saved. */
+export const activeSource = computed(() => {
+  const current = playlist()
+  if (!current || playingMixtapeId()) return null
+  return library().sources.find((entry) => entry.url === current.sourceUrl) ?? null
+})
+
+/** Tracks in the loaded source the user has hidden (not part of the queue). */
+export const hiddenTracks = computed<Track[]>(() => {
+  const current = playlist()
+  const saved = activeSource()
+  if (!current || !saved) return []
+  return partitionSourceTracks(current.tracks, saved.hiddenTrackIds).hidden
+})
+
+/** What the player is actually playing: the active mixtape, else the loaded
+ *  source minus any videos the user has hidden from it. */
+let filteredCache: { source: Playlist; hiddenIds: readonly string[]; result: Playlist } | null = null
 export const activePlaylist = computed<Playlist | null>(() => {
   const mixtape = playingMixtape()
-  return mixtape ? mixtapeToPlaylist(mixtape) : playlist()
+  if (mixtape) return mixtapeToPlaylist(mixtape)
+  const current = playlist()
+  const saved = activeSource()
+  if (!current || !saved || saved.hiddenTrackIds.length === 0) return current
+  // Keep the same object while nothing relevant changed, so consumers that
+  // key off playlist identity (queue auto-scroll, playback re-init) don't
+  // fire on every unrelated library write (progress checkpoints, syncs).
+  if (filteredCache && filteredCache.source === current && filteredCache.hiddenIds === saved.hiddenTrackIds) {
+    return filteredCache.result
+  }
+  const { visible } = partitionSourceTracks(current.tracks, saved.hiddenTrackIds)
+  const result = visible.length === current.tracks.length ? current : { ...current, tracks: visible }
+  filteredCache = { source: current, hiddenIds: saved.hiddenTrackIds, result }
+  return result
 })
 
 export const hasPlayer = computed(() => {

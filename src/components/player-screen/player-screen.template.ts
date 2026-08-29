@@ -42,6 +42,7 @@ export function playerScreenTemplate(c: PlayerScreenComponent): TemplateResult {
               (item) => item.id,
               (item, index) => trackRow(c, item, index),
             )}
+            ${hiddenSection(c)}
           </ol>
         </aside>
 
@@ -212,8 +213,8 @@ function trackRow(c: PlayerScreenComponent, item: Track, index: number): Templat
         </span>
         <time>${formatTime(item.duration)}</time>
       </button>
-      ${!isUnavailable
-        ? activeMixtapeId
+      ${activeMixtapeId
+        ? !isUnavailable
           ? html`
               <button
                 class="track-item__action"
@@ -224,16 +225,80 @@ function trackRow(c: PlayerScreenComponent, item: Track, index: number): Templat
                 ${unsafeHTML(icon('x'))}
               </button>
             `
-          : html`
-              <button
-                class="track-item__action"
-                @click=${() => c.pickTrack(item)}
-                aria-label=${`Add ${item.title} to a mixtape`}
-                title="Add to mixtape"
-              >
-                ${unsafeHTML(icon('listPlus'))}
-              </button>
-            `
+          : html``
+        : html`
+            ${!isUnavailable
+              ? html`
+                  <button
+                    class="track-item__action"
+                    @click=${() => c.pickTrack(item)}
+                    aria-label=${`Add ${item.title} to a mixtape`}
+                    title="Add to mixtape"
+                  >
+                    ${unsafeHTML(icon('listPlus'))}
+                  </button>
+                `
+              : html``}
+            <button
+              class="track-item__action"
+              @click=${() => c.hideTrack(item)}
+              aria-label=${`Hide ${item.title} from this source`}
+              title="Hide from this source"
+            >
+              ${unsafeHTML(icon('eyeOff'))}
+            </button>
+          `}
+    </li>
+  `
+}
+
+/** Videos the user hid from this source: collapsed under the queue, each
+ *  with an unhide button. Not part of the playing queue. */
+function hiddenSection(c: PlayerScreenComponent): TemplateResult {
+  const hidden = c.hiddenTracks()
+  if (hidden.length === 0) return html``
+  const open = c.showHidden
+  return html`
+    <li class="hidden-section">
+      <button
+        type="button"
+        class="hidden-section__toggle"
+        @click=${() => c.toggleHidden()}
+        aria-expanded=${open ? 'true' : 'false'}
+      >
+        ${unsafeHTML(icon('eyeOff'))}
+        <span>${hidden.length} hidden</span>
+        ${unsafeHTML(icon('chevronDown', { class: open ? 'hidden-section__chevron hidden-section__chevron--open' : 'hidden-section__chevron' }))}
+      </button>
+      ${open
+        ? html`
+            <ul class="hidden-section__list" aria-label="Hidden videos">
+              ${hidden.map(
+                (item) => html`
+                  <li class="track-item track-item--hidden">
+                    <span class="track-row track-row--static">
+                      <span class="track-row__thumb">
+                        ${!item.unavailable ? html`<img src=${thumbnailUrl(item.id)} alt="" loading="lazy" />` : html``}
+                      </span>
+                      <span class="track-row__copy">
+                        <strong class="muted">${item.title}</strong>
+                        <span>${item.artist}</span>
+                      </span>
+                      <time>${formatTime(item.duration)}</time>
+                    </span>
+                    <button
+                      class="track-item__action"
+                      @click=${() => c.unhideTrack(item)}
+                      aria-label=${`Unhide ${item.title}`}
+                      title="Unhide"
+                    >
+                      ${unsafeHTML(icon('eye'))}
+                    </button>
+                  </li>
+                `,
+              )}
+            </ul>
+          `
         : html``}
     </li>
   `

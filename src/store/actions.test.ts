@@ -157,6 +157,7 @@ describe('store actions (browser build)', () => {
           kind: twoTrackPlaylist.kind,
           thumbnail: '',
           savedAt: new Date(0).toISOString(),
+          hiddenTrackIds: [],
           tracks: twoTrackPlaylist.tracks,
           lastTrackId: 'trackB',
           lastPositionSecs: 42,
@@ -272,6 +273,25 @@ describe('store actions (browser build)', () => {
     expect(player.queueTrackId()).toBe('trackA')
   })
 
+  it('hides a video from the loaded source and moves playback along', async () => {
+    stubResolve(twoTrackPlaylist)
+    await actions.handleLoad(twoTrackPlaylist.sourceUrl)
+    expect(activePlaylist()?.tracks).toHaveLength(2)
+
+    actions.hideSourceTrack('trackA')
+    expect(activePlaylist()?.tracks.map((t) => t.id)).toEqual(['trackB'])
+    expect(player.queueTrackId()).toBe('trackB')
+    expect(library().sources[0].hiddenTrackIds).toEqual(['trackA'])
+
+    // The last visible video can't be hidden.
+    actions.hideSourceTrack('trackB')
+    expect(activePlaylist()?.tracks).toHaveLength(1)
+
+    actions.unhideSourceTrack('trackA')
+    expect(activePlaylist()?.tracks.map((t) => t.id)).toEqual(['trackA', 'trackB'])
+    expect(player.queueTrackId()).toBe('trackB')
+  })
+
   it('flushes the outgoing source\'s resume position when switching sources', async () => {
     // Regression: the flush must target the OLD source, before the new
     // source's signals are set (React flushed on unmount with old refs).
@@ -290,6 +310,7 @@ describe('store actions (browser build)', () => {
           kind: twoTrackPlaylist.kind,
           thumbnail: '',
           savedAt: new Date(0).toISOString(),
+          hiddenTrackIds: [],
           tracks: twoTrackPlaylist.tracks,
         },
       ],
@@ -318,6 +339,7 @@ describe('store actions (browser build)', () => {
           kind: twoTrackPlaylist.kind,
           thumbnail: '',
           savedAt: new Date(0).toISOString(),
+          hiddenTrackIds: [],
           tracks: twoTrackPlaylist.tracks,
         },
       ],
