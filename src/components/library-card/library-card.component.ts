@@ -20,6 +20,8 @@ export class LibraryCardComponent {
 
   public name = ''
   public meta = ''
+  /** Short kind label shown as a tag on the art (Channel / Playlist / Video / Mixtape). */
+  public kind = ''
   public thumbnail = ''
   /** Raw SVG string for the empty-thumbnail placeholder (cassette or history). */
   public placeholderIcon = ''

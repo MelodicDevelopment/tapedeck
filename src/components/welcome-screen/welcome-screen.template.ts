@@ -6,7 +6,7 @@ import { formatTime, thumbnailUrl } from '../../data/mockPlaylist'
 import { formatRelativeTime } from '../../lib/time'
 import { icon } from '../../ui/icons'
 import type { WelcomeScreenComponent } from './welcome-screen.component'
-import type { LibraryEntry } from './welcome-screen.types'
+import { entryKind, KIND_LABELS, LIBRARY_KINDS, type LibraryEntry } from './welcome-screen.types'
 
 const EXAMPLE_URL = 'https://www.youtube.com/@METAL_MUSIC_AI'
 
@@ -26,8 +26,8 @@ function entryMeta(entry: LibraryEntry): string {
   const relative = entry.data.lastPlayedAt
     ? formatRelativeTime(entry.data.lastPlayedAt)
     : entry.type === 'source'
-      ? entry.data.kind
-      : 'Mixtape'
+      ? `Saved ${formatRelativeTime(entry.data.savedAt).toLowerCase()}`
+      : 'Not played yet'
   return `${countLabel} · ${relative}`
 }
 
@@ -113,7 +113,10 @@ export function welcomeScreenTemplate(c: WelcomeScreenComponent): TemplateResult
           `
         : html``}
 
-      <section class="welcome-content" aria-live="polite">
+      <section
+        class=${hasLibrary && !checkingAuth && !loading ? 'welcome-content welcome-content--library' : 'welcome-content'}
+        aria-live="polite"
+      >
         <div class=${hasLibrary ? 'welcome-stack welcome-stack--wide' : 'welcome-stack'}>
           ${checkingAuth
             ? html`
@@ -224,10 +227,6 @@ function libraryView(
   const needsSignIn = c.desktop && !c.authStatus()?.authenticated
   const formDisabled = needsSignIn || c.authAction() !== null
   const query = c.libraryQuery.trim().toLowerCase()
-  const filteredEntries = query
-    ? allEntries.filter((entry) => entry.data.name.toLowerCase().includes(query))
-    : allEntries
-  const noMatches = query.length > 0 && filteredEntries.length === 0
 
   const continueTrack = continueEntry?.data.tracks.find(
     (track) => track.id === continueEntry.data.lastTrackId,
@@ -238,57 +237,93 @@ function libraryView(
       ? Math.min(100, (continueElapsed / continueTrack.duration) * 100)
       : 0
 
+  const kind = c.libraryKind
+  const kindCounts = new Map<string, number>()
+  for (const entry of allEntries) {
+    const k = entryKind(entry)
+    kindCounts.set(k, (kindCounts.get(k) ?? 0) + 1)
+  }
+  const byKind = kind === 'all' ? allEntries : allEntries.filter((entry) => entryKind(entry) === kind)
+  const filteredEntries = query
+    ? byKind.filter((entry) => entry.data.name.toLowerCase().includes(query))
+    : byKind
+  const noMatches = filteredEntries.length === 0
+
   return html`
-    <div class="welcome-library-view">
-      <div class="compact-paste-bar">${pasteForm(c)}</div>
+    <div class="library-layout">
+      <aside class="library-rail">
+        <div class="library__group">
+          <p class="library__heading">Add a source</p>
+          ${pasteForm(c)}
+        </div>
 
-      ${needsSignIn ? authGate(c) : html``}
+        ${needsSignIn ? authGate(c) : html``}
 
-      ${continueEntry && continueTrack
-        ? html`
-            <div class="library__group">
-              <p class="library__heading">Continue listening</p>
-              <div class="continue-card">
-                <button
-                  type="button"
-                  class="continue-card__art"
-                  @click=${() => c.openEntry(continueEntry)}
-                  aria-label=${`Resume ${continueEntry.data.name}`}
-                >
-                  ${entryThumbnail(continueEntry)
-                    ? html`<img src=${entryThumbnail(continueEntry)} alt="" referrerpolicy="no-referrer" />`
-                    : html`<span class="continue-card__placeholder" aria-hidden="true">
-                        ${unsafeHTML(icon('play'))}
-                      </span>`}
-                  <span class="continue-card__play" aria-hidden="true">
-                    ${unsafeHTML(icon('play', { fill: true }))}
-                  </span>
-                </button>
-                <div class="continue-card__copy">
-                  <strong>${continueTrack.title}</strong>
-                  <span>
-                    ${continueEntry.data.name} · ${formatTime(continueElapsed)} of
-                    ${formatTime(continueTrack.duration)}
-                  </span>
-                  <div class="continue-card__progress">
-                    <div style=${`width: ${continueProgress}%`}></div>
+        ${continueEntry && continueTrack
+          ? html`
+              <div class="library__group">
+                <p class="library__heading">Continue listening</p>
+                <div class="continue-card">
+                  <button
+                    type="button"
+                    class="continue-card__art"
+                    @click=${() => c.openEntry(continueEntry)}
+                    aria-label=${`Resume ${continueEntry.data.name}`}
+                  >
+                    ${entryThumbnail(continueEntry)
+                      ? html`<img src=${entryThumbnail(continueEntry)} alt="" referrerpolicy="no-referrer" />`
+                      : html`<span class="continue-card__placeholder" aria-hidden="true">
+                          ${unsafeHTML(icon('play'))}
+                        </span>`}
+                    <span class="continue-card__play" aria-hidden="true">
+                      ${unsafeHTML(icon('play', { fill: true }))}
+                    </span>
+                  </button>
+                  <div class="continue-card__copy">
+                    <strong>${continueTrack.title}</strong>
+                    <span>
+                      ${continueEntry.data.name} · ${formatTime(continueElapsed)} of
+                      ${formatTime(continueTrack.duration)}
+                    </span>
+                    <div class="continue-card__progress">
+                      <div style=${`width: ${continueProgress}%`}></div>
+                    </div>
                   </div>
+                  <button
+                    type="button"
+                    class="button button--primary button--small"
+                    @click=${() => c.openEntry(continueEntry)}
+                  >
+                    Resume
+                  </button>
                 </div>
-                <button
-                  type="button"
-                  class="button button--primary button--small"
-                  @click=${() => c.openEntry(continueEntry)}
-                >
-                  Resume
-                </button>
               </div>
-            </div>
-          `
-        : html``}
+            `
+          : html``}
+      </aside>
 
       <section class="library" aria-label="Your library">
         <div class="library__group-header">
-          <p class="library__heading">Your library · ${allEntries.length} saved</p>
+          <div class="library__group-header-left">
+            <p class="library__heading">Your library · ${allEntries.length} saved</p>
+            <div class="library__kinds" role="group" aria-label="Filter by kind">
+              ${LIBRARY_KINDS.filter((option) => option.id === 'all' || (kindCounts.get(option.id) ?? 0) > 0).map(
+                (option) => html`
+                  <button
+                    type="button"
+                    class=${option.id === kind ? 'library__kind library__kind--active' : 'library__kind'}
+                    @click=${() => c.setKind(option.id)}
+                    aria-pressed=${option.id === kind ? 'true' : 'false'}
+                  >
+                    ${option.label}
+                    ${option.id !== 'all'
+                      ? html`<span class="library__kind-count">${kindCounts.get(option.id) ?? 0}</span>`
+                      : html``}
+                  </button>
+                `,
+              )}
+            </div>
+          </div>
           <div class="library__search">
             ${unsafeHTML(icon('search'))}
             <input
@@ -302,7 +337,9 @@ function libraryView(
         </div>
 
         ${noMatches
-          ? html`<p class="library__empty">No matches for “${c.libraryQuery.trim()}”.</p>`
+          ? html`<p class="library__empty">
+              ${query ? `No matches for “${c.libraryQuery.trim()}”.` : 'Nothing of this kind saved yet.'}
+            </p>`
           : html`
               <ul class="library-grid">
                 ${filteredEntries.map(
@@ -310,6 +347,7 @@ function libraryView(
                     <td-library-card
                       .name=${entry.data.name}
                       .meta=${entryMeta(entry)}
+                      .kind=${KIND_LABELS[entryKind(entry)]}
                       .thumbnail=${entryThumbnail(entry)}
                       .placeholderIcon=${entry.type === 'mixtape' ? icon('cassetteTape') : icon('history')}
                       .lastPlayed=${continueEntry?.key === entry.key}

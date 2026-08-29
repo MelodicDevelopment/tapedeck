@@ -21,6 +21,7 @@ export function libraryCardTemplate(c: LibraryCardComponent): TemplateResult {
         ${c.lastPlayed
           ? html`<span class="library-grid__pill" aria-hidden="true">Last played</span>`
           : html``}
+        ${c.kind ? html`<span class="library-grid__kind">${c.kind}</span>` : html``}
       </button>
       <button
         type="button"

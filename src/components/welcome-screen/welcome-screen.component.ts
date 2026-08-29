@@ -24,7 +24,7 @@ import {
   url,
   view,
 } from '../../store/state'
-import type { LibraryEntry } from './welcome-screen.types'
+import type { LibraryEntry, LibraryKind } from './welcome-screen.types'
 import { welcomeScreenTemplate } from './welcome-screen.template'
 import { welcomeScreenStyles } from './welcome-screen.styles'
 
@@ -54,6 +54,7 @@ export class WelcomeScreenComponent {
   public syncError = syncError
 
   public libraryQuery = ''
+  public libraryKind: LibraryKind = 'all'
   public importError = ''
   public exportError = ''
 
@@ -64,6 +65,10 @@ export class WelcomeScreenComponent {
 
   public onUrlInput(event: Event): void {
     setUrl((event.target as HTMLInputElement).value)
+  }
+
+  public setKind(kind: LibraryKind): void {
+    this.libraryKind = kind
   }
 
   public onQueryInput(event: Event): void {

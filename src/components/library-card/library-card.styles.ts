@@ -66,6 +66,23 @@ export const libraryCardStyles = (): TemplateResult => css`
     text-transform: uppercase;
   }
 
+  .library-grid__kind {
+    position: absolute;
+    top: 8px;
+    left: 8px;
+    padding: 2px 7px;
+    border-radius: 6px;
+    color: var(--td-text-soft);
+    background: rgb(20 18 15 / 70%);
+    font-size: 10px;
+    font-weight: 600;
+    transition: opacity 120ms ease;
+  }
+
+  .library-grid__card:hover .library-grid__kind {
+    opacity: 0;
+  }
+
   .library-grid__remove {
     position: absolute;
     top: 8px;
@@ -101,13 +118,13 @@ export const libraryCardStyles = (): TemplateResult => css`
     display: flex;
     flex-direction: column;
     gap: 3px;
-    padding: 12px 14px 14px;
+    padding: 10px 12px 12px;
   }
 
   .library-grid__body strong {
     overflow: hidden;
     color: var(--td-text);
-    font-size: 14px;
+    font-size: 13px;
     font-weight: 600;
     text-overflow: ellipsis;
     white-space: nowrap;

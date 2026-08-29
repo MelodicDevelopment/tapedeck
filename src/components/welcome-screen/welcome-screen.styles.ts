@@ -126,6 +126,12 @@ export const welcomeScreenStyles = (): TemplateResult => css`
     overflow-y: auto;
   }
 
+  /* The library layout sits directly under the header like the player does;
+     the centered welcome card keeps its breathing room. */
+  .welcome-content--library {
+    padding: 4px 28px 20px;
+  }
+
   /* Centers like the old grid when content is short, scrolls when the
      library below the card makes it tall. */
   .welcome-stack {
@@ -138,8 +144,102 @@ export const welcomeScreenStyles = (): TemplateResult => css`
   }
 
   .welcome-stack--wide {
-    width: min(100%, 1040px);
+    width: min(100%, 1480px);
     align-items: stretch;
+    margin: 0 auto;
+  }
+
+  .library-layout {
+    display: grid;
+    width: 100%;
+    grid-template-columns: 280px minmax(0, 1fr);
+    gap: 28px;
+    align-items: start;
+  }
+
+  .library-rail {
+    position: sticky;
+    top: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+  }
+
+  .library-rail .source-form__row {
+    flex-direction: column;
+  }
+
+  .library-rail .input,
+  .library-rail .button--primary {
+    width: 100%;
+    height: 40px;
+    flex: 0 0 auto;
+    box-sizing: border-box;
+  }
+
+  .library-rail .source-form__error {
+    justify-content: flex-start;
+    text-align: left;
+  }
+
+  .library-rail .auth-gate {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .library__group-header-left {
+    display: flex;
+    min-width: 0;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 16px;
+  }
+
+  .library__kinds {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .library__kind {
+    display: inline-flex;
+    height: 28px;
+    align-items: center;
+    gap: 6px;
+    padding: 0 11px;
+    border: 1px solid var(--td-border);
+    border-radius: 999px;
+    background: transparent;
+    color: var(--td-muted);
+    font: inherit;
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: color 120ms ease, background 120ms ease, border-color 120ms ease;
+  }
+
+  .library__kind:hover {
+    color: var(--td-text);
+    border-color: var(--td-border-strong);
+  }
+
+  .library__kind--active,
+  .library__kind--active:hover {
+    color: var(--td-accent-soft);
+    border-color: transparent;
+    background: var(--td-accent-dim);
+    font-weight: 600;
+  }
+
+  .library__kind-count {
+    color: var(--td-faint);
+    font-size: 11px;
+    font-weight: 500;
+  }
+
+  .library__kind--active .library__kind-count {
+    color: var(--td-accent-soft);
+    opacity: 0.8;
   }
 
   .welcome-card,
@@ -354,35 +454,6 @@ export const welcomeScreenStyles = (): TemplateResult => css`
     font-size: 14px;
   }
 
-  .welcome-library-view {
-    display: flex;
-    width: 100%;
-    flex-direction: column;
-    gap: 28px;
-  }
-
-  .compact-paste-bar {
-    width: 100%;
-  }
-
-  .compact-paste-bar .source-form__row {
-    max-width: 560px;
-    margin: 0 auto;
-  }
-
-  .compact-paste-bar .input {
-    height: 40px;
-  }
-
-  .compact-paste-bar .button--primary {
-    height: 40px;
-  }
-
-  .compact-paste-bar .source-form__error {
-    max-width: 560px;
-    margin: 10px auto 0;
-  }
-
   .library {
     display: flex;
     width: 100%;
@@ -455,9 +526,10 @@ export const welcomeScreenStyles = (): TemplateResult => css`
 
   .continue-card {
     display: flex;
-    align-items: center;
-    gap: 16px;
-    padding: 16px;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+    padding: 12px;
     border: 1px solid var(--td-border);
     border-radius: 14px;
     background: linear-gradient(100deg, #1f1c18, #1b1916 60%);
@@ -465,8 +537,8 @@ export const welcomeScreenStyles = (): TemplateResult => css`
 
   .continue-card__art {
     position: relative;
-    width: 150px;
-    height: 92px;
+    width: 100%;
+    aspect-ratio: 16 / 9;
     flex: 0 0 auto;
     overflow: hidden;
     border: 0;
@@ -513,7 +585,6 @@ export const welcomeScreenStyles = (): TemplateResult => css`
     gap: 5px;
   }
 
-  .continue-card__copy strong,
   .continue-card__copy span {
     overflow: hidden;
     text-overflow: ellipsis;
@@ -521,8 +592,13 @@ export const welcomeScreenStyles = (): TemplateResult => css`
   }
 
   .continue-card__copy strong {
-    font-size: 15.5px;
-    font-weight: 650;
+    display: -webkit-box;
+    overflow: hidden;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    font-size: 13.5px;
+    font-weight: 600;
+    line-height: 1.3;
   }
 
   .continue-card__copy span {
@@ -547,9 +623,23 @@ export const welcomeScreenStyles = (): TemplateResult => css`
     display: grid;
     margin: 0;
     padding: 0;
-    grid-template-columns: repeat(auto-fill, minmax(215px, 1fr));
-    gap: 14px;
+    grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+    gap: 12px;
     list-style: none;
+  }
+
+  @media (max-width: 900px) {
+    .library-layout {
+      grid-template-columns: minmax(0, 1fr);
+    }
+
+    .library-rail {
+      position: static;
+    }
+
+    .library-rail .source-form__row {
+      flex-direction: row;
+    }
   }
 
   @media (max-width: 620px) {
