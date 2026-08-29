@@ -471,22 +471,41 @@ export async function bootstrap(): Promise<void> {
   }
 }
 
+/** Everything sync-worthy about a library except playback positions. */
+function syncFingerprint(current: Library): string {
+  return JSON.stringify([
+    current.sources.map((source) => [source.url, source.savedAt, source.lastPlayedAt, source.hiddenTrackIds]),
+    current.mixtapes.map((mixtape) => [mixtape.id, mixtape.updatedAt, mixtape.lastPlayedAt]),
+    current.playbackSettings,
+    current.deletedSourceUrls,
+    current.deletedMixtapeIds,
+  ])
+}
+
 function wireEffects(): void {
   // Debounced sync shortly after any local library change (new source,
   // mixtape edit, playback settings, resume position, ...).
   let syncTimer: ReturnType<typeof setTimeout> | undefined
   let sawFirstLibrary = false
+  let lastSyncFingerprint = ''
   new SignalEffect(() => {
-    library()
+    const fingerprint = syncFingerprint(library())
     if (!desktop) return
     if (!sawFirstLibrary) {
       sawFirstLibrary = true
+      lastSyncFingerprint = fingerprint
       return
     }
     if (suppressSyncTrigger) {
       suppressSyncTrigger = false
+      lastSyncFingerprint = fingerprint
       return
     }
+    // Resume-position checkpoints land every 15s while playing; they don't
+    // warrant a round trip each time (the periodic sync and the next real
+    // edit carry them). Only genuine edits schedule a sync.
+    if (fingerprint === lastSyncFingerprint) return
+    lastSyncFingerprint = fingerprint
     clearTimeout(syncTimer)
     syncTimer = setTimeout(() => {
       if (authStatus()?.authenticated) syncNow()

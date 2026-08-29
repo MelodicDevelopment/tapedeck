@@ -18,9 +18,6 @@ import {
   error,
   hasPlayer,
   library,
-  syncDevices,
-  syncError,
-  syncStatus,
   url,
   view,
 } from '../../store/state'
@@ -49,9 +46,6 @@ export class WelcomeScreenComponent {
   public authAction = authAction
   public library = library
   public hasPlayer = hasPlayer
-  public syncStatus = syncStatus
-  public syncDevices = syncDevices
-  public syncError = syncError
 
   public libraryQuery = ''
   public libraryKind: LibraryKind = 'all'

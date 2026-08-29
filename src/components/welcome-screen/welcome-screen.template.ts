@@ -5,6 +5,7 @@ import { html, unsafeHTML, type TemplateResult } from '@melodicdev/core'
 import { formatTime, thumbnailUrl } from '../../data/mockPlaylist'
 import { formatRelativeTime } from '../../lib/time'
 import { icon } from '../../ui/icons'
+import { keyed } from '../../ui/keyed'
 import type { WelcomeScreenComponent } from './welcome-screen.component'
 import { entryKind, KIND_LABELS, LIBRARY_KINDS, type LibraryEntry } from './welcome-screen.types'
 
@@ -342,8 +343,10 @@ function libraryView(
             </p>`
           : html`
               <ul class="library-grid">
-                ${filteredEntries.map(
-                  (entry) => html`
+                ${filteredEntries.map((entry) =>
+                  keyed(
+                    entry.key,
+                    html`
                     <td-library-card
                       .name=${entry.data.name}
                       .meta=${entryMeta(entry)}
@@ -359,6 +362,7 @@ function libraryView(
                       @td:remove=${() => c.removeEntry(entry)}
                     ></td-library-card>
                   `,
+                  ),
                 )}
               </ul>
             `}

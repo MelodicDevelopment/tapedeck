@@ -223,6 +223,29 @@ describe('td-app (DOM)', () => {
     expect(deepQuery('.welcome-shell--overlay')).toBeFalsy()
   })
 
+  it('keeps library cards mounted when the library re-renders (no image reload blink)', async () => {
+    await mountApp()
+    await loadPlaylist()
+    ;(deepQuery('.player-header__back') as HTMLButtonElement).click()
+    await flush()
+
+    const before = deepQueryAll('td-library-card')
+    expect(before).toHaveLength(1)
+
+    // A sync landing replaces the library object with an equivalent one and
+    // flips the sync status twice; neither should rebuild the card DOM.
+    const { library, syncStatus } = await import('../../store/state')
+    syncStatus.set('syncing')
+    await flush()
+    library.set({ ...library(), sources: library().sources.map((source) => ({ ...source })) })
+    syncStatus.set('synced')
+    await flush()
+
+    const after = deepQueryAll('td-library-card')
+    expect(after).toHaveLength(1)
+    expect(after[0]).toBe(before[0])
+  })
+
   it('relays play/pause, volume, and seek to the embedded YT player', async () => {
     const { playing, seek, volume } = await import('../../store/player')
     await mountApp()
