@@ -78,7 +78,7 @@ describe('store actions (browser build)', () => {
 
   it('shows validation feedback for an empty submission', async () => {
     await actions.handleLoad()
-    expect(error()).toBe('Paste a YouTube channel or playlist URL first.')
+    expect(error()).toBe('Paste a YouTube video, channel, or playlist URL first.')
     expect(view()).toBe('welcome')
   })
 

@@ -69,7 +69,7 @@ impl CommandError {
     fn auth_required() -> Self {
         Self::new(
             "AUTH_REQUIRED",
-            "Sign in with Google to load YouTube channels and playlists.",
+            "Sign in with Google to load YouTube videos, channels, and playlists.",
         )
     }
 }

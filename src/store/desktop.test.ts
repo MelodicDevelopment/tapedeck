@@ -57,6 +57,7 @@ const remoteLibrary = {
       kind: 'YouTube channel',
       thumbnail: '',
       savedAt: new Date().toISOString(),
+      hiddenTrackIds: [],
       tracks: [{ id: 'r1', title: 'Remote Track', artist: 'Remote Channel', duration: 200 }],
     },
   ],
@@ -160,7 +161,7 @@ describe('store actions (desktop build)', () => {
   it('blocks URL loading while signed out', async () => {
     authStatus.set({ configured: true, authenticated: false })
     await actions.handleLoad('https://www.youtube.com/@lofihiphopmusic')
-    expect(error()).toBe('Sign in with Google before loading a YouTube channel or playlist.')
+    expect(error()).toBe('Sign in with Google before loading a YouTube video, channel, or playlist.')
     authStatus.set({ configured: true, authenticated: true, user: { name: 'Ada Listener', email: 'ada@example.com' } })
   })
 

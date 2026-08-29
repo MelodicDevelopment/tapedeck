@@ -13,19 +13,22 @@ export class YouTubeResolverError extends Error {
 export function parseYouTubeSource(value) {
   const trimmed = String(value ?? '').trim()
   if (!trimmed || trimmed.length > 2048) {
-    throw new YouTubeResolverError('Provide a valid YouTube channel or playlist URL.', 400, 'INVALID_URL')
+    throw new YouTubeResolverError('Provide a valid YouTube video, channel, or playlist URL.', 400, 'INVALID_URL')
   }
 
   try {
     const normalized = /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`
     const url = new URL(normalized)
     const host = url.hostname.toLowerCase().replace(/^www\./, '')
+    const parts = url.pathname.split('/').filter(Boolean).map(decodeURIComponent)
+    if (host === 'youtu.be') return videoSource(parts[0])
     if (host !== 'youtube.com' && host !== 'music.youtube.com') throw new Error('Wrong host')
 
     const playlistId = url.searchParams.get('list')
     if (playlistId) return { type: 'playlist', id: playlistId, canonicalUrl: `https://www.youtube.com/playlist?list=${encodeURIComponent(playlistId)}` }
 
-    const parts = url.pathname.split('/').filter(Boolean).map(decodeURIComponent)
+    const videoId = url.searchParams.get('v')
+    if (videoId) return videoSource(videoId)
     if (parts[0]?.startsWith('@') && parts[0].length > 1) {
       return { type: 'channel', filter: 'forHandle', id: parts[0], canonicalUrl: `https://www.youtube.com/${encodeURIComponent(parts[0])}` }
     }
@@ -38,15 +41,22 @@ export function parseYouTubeSource(value) {
     if (parts[0] === 'c' && parts[1]) {
       return { type: 'custom', id: parts[1], canonicalUrl: `https://www.youtube.com/c/${encodeURIComponent(parts[1])}` }
     }
+    if (['shorts', 'embed', 'live', 'v'].includes(parts[0]) && parts[1]) return videoSource(parts[1])
     throw new Error('Unsupported path')
   } catch (error) {
     if (error instanceof YouTubeResolverError) throw error
     throw new YouTubeResolverError(
-      "That doesn't look like a YouTube channel or playlist link. Check the URL and try again.",
+      "That doesn't look like a YouTube video, channel, or playlist link. Check the URL and try again.",
       400,
       'INVALID_URL',
     )
   }
+}
+
+/** YouTube video ids are 11 chars of [A-Za-z0-9_-]. */
+function videoSource(id) {
+  if (!/^[A-Za-z0-9_-]{11}$/.test(id ?? '')) throw new Error('Not a video id')
+  return { type: 'video', id, canonicalUrl: `https://www.youtube.com/watch?v=${id}` }
 }
 
 export function parseIsoDuration(value) {
@@ -80,7 +90,7 @@ async function youtubeGet(resource, params, apiKey, fetchImpl) {
       throw new YouTubeResolverError('The YouTube API quota is temporarily exhausted. Try again later.', 429, 'QUOTA_EXCEEDED')
     }
     if (response.status === 400 || response.status === 404) {
-      throw new YouTubeResolverError('YouTube could not find that channel or playlist.', 404, 'SOURCE_NOT_FOUND')
+      throw new YouTubeResolverError('YouTube could not find that video, channel, or playlist.', 404, 'SOURCE_NOT_FOUND')
     }
     throw new YouTubeResolverError('YouTube rejected the request. Check the server API-key configuration.', 502, 'YOUTUBE_REJECTED')
   }
@@ -151,6 +161,28 @@ async function loadVideoDetails(videoIds, apiKey, fetchImpl) {
   return details
 }
 
+async function resolveSingleVideo(source, apiKey, fetchImpl) {
+  const response = await youtubeGet('videos', { part: 'snippet,contentDetails,status', id: source.id }, apiKey, fetchImpl)
+  const video = response.items?.[0]
+  if (!video) throw new YouTubeResolverError('That video could not be found on YouTube.', 404, 'SOURCE_NOT_FOUND')
+  const unavailable = video.status?.embeddable === false || video.status?.privacyStatus !== 'public'
+  const title = video.snippet?.title || 'Unavailable video'
+  return {
+    name: title,
+    kind: 'YouTube video',
+    description: video.snippet?.description ?? '',
+    thumbnail: bestThumbnail(video.snippet?.thumbnails),
+    sourceUrl: source.canonicalUrl,
+    tracks: [{
+      id: source.id,
+      title,
+      artist: unavailable ? 'Unavailable on YouTube' : (video.snippet?.channelTitle || 'YouTube'),
+      duration: parseIsoDuration(video.contentDetails?.duration),
+      unavailable,
+    }],
+  }
+}
+
 export async function resolveYouTubeUrl(value, options = {}) {
   const source = parseYouTubeSource(value)
   const apiKey = options.apiKey
@@ -163,6 +195,7 @@ export async function resolveYouTubeUrl(value, options = {}) {
   }
 
   const fetchImpl = options.fetchImpl ?? fetch
+  if (source.type === 'video') return resolveSingleVideo(source, apiKey, fetchImpl)
   const maxTracks = Math.max(1, Math.min(Number(options.maxTracks) || DEFAULT_MAX_TRACKS, 200))
   const metadata = source.type === 'playlist'
     ? await resolvePlaylist(source, apiKey, fetchImpl)

@@ -161,7 +161,7 @@ describe('td-app (DOM)', () => {
     form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
     await flush()
     expect(deepQuery('.source-form__error')?.textContent).toContain(
-      'Paste a YouTube channel or playlist URL first.',
+      'Paste a YouTube video, channel, or playlist URL first.',
     )
   })
 

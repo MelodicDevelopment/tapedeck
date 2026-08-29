@@ -14,9 +14,17 @@ describe('YouTube URL parsing', () => {
     expect(parseYouTubeSource('https://youtube.com/user/legacy')).toMatchObject({ type: 'channel', filter: 'forUsername' })
   })
 
-  it('rejects unrelated and single-video URLs', () => {
+  it('recognizes single-video URLs', () => {
+    const expected = { type: 'video', id: 'dQw4w9WgXcQ', canonicalUrl: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ' }
+    expect(parseYouTubeSource('https://www.youtube.com/watch?v=dQw4w9WgXcQ')).toEqual(expected)
+    expect(parseYouTubeSource('https://youtu.be/dQw4w9WgXcQ?t=5')).toEqual(expected)
+    expect(parseYouTubeSource('https://www.youtube.com/shorts/dQw4w9WgXcQ')).toEqual(expected)
+  })
+
+  it('rejects unrelated URLs and malformed video ids', () => {
     expect(() => parseYouTubeSource('https://example.com/playlist')).toThrow(YouTubeResolverError)
-    expect(() => parseYouTubeSource('https://youtu.be/dQw4w9WgXcQ')).toThrow(YouTubeResolverError)
+    expect(() => parseYouTubeSource('https://youtu.be/nope')).toThrow(YouTubeResolverError)
+    expect(() => parseYouTubeSource('https://www.youtube.com/watch?v=nope')).toThrow(YouTubeResolverError)
   })
 })
 

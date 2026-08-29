@@ -157,8 +157,8 @@ function pasteForm(c: WelcomeScreenComponent): TemplateResult {
           class=${error ? 'input input--error' : 'input'}
           .value=${c.url()}
           @input=${(event: Event) => c.onUrlInput(event)}
-          placeholder="Paste a YouTube channel or playlist URL…"
-          aria-label="YouTube channel or playlist URL"
+          placeholder="Paste a YouTube video, channel, or playlist URL…"
+          aria-label="YouTube video, channel, or playlist URL"
           aria-invalid=${error ? 'true' : 'false'}
           aria-describedby=${error ? 'source-error' : undefined}
           autocapitalize="none"
@@ -336,7 +336,7 @@ function welcomeCard(c: WelcomeScreenComponent): TemplateResult {
       <p class="eyebrow">YOUR MUSIC, LESS NOISE</p>
       <h1>Play the channels you love</h1>
       <p class="welcome-card__copy">
-        Paste a YouTube channel or playlist and Tapedeck turns it into a clean, distraction-free
+        Paste a YouTube video, channel, or playlist and Tapedeck turns it into a clean, distraction-free
         music player.
       </p>
 

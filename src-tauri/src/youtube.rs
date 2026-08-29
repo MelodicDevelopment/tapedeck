@@ -54,6 +54,10 @@ enum Source {
         id: String,
         canonical_url: String,
     },
+    Video {
+        id: String,
+        canonical_url: String,
+    },
 }
 
 #[derive(Debug)]
@@ -68,8 +72,27 @@ struct SourceMetadata {
 fn invalid_url() -> CommandError {
     CommandError::new(
         "INVALID_URL",
-        "That doesn't look like a YouTube channel or playlist link. Check the URL and try again.",
+        "That doesn't look like a YouTube video, channel, or playlist link. Check the URL and try again.",
     )
+}
+
+/// YouTube video ids are 11 chars of [A-Za-z0-9_-]; anything else is not a
+/// video we can look up.
+fn is_video_id(value: &str) -> bool {
+    value.len() == 11
+        && value
+            .chars()
+            .all(|character| character.is_ascii_alphanumeric() || character == '_' || character == '-')
+}
+
+fn video_source(id: &str) -> Result<Source, CommandError> {
+    if !is_video_id(id) {
+        return Err(invalid_url());
+    }
+    Ok(Source::Video {
+        id: id.to_owned(),
+        canonical_url: format!("https://www.youtube.com/watch?v={id}"),
+    })
 }
 
 fn decode_path(value: &str) -> String {
@@ -81,7 +104,7 @@ fn parse_youtube_source(value: &str) -> Result<Source, CommandError> {
     if trimmed.is_empty() || trimmed.len() > 2048 {
         return Err(CommandError::new(
             "INVALID_URL",
-            "Provide a valid YouTube channel or playlist URL.",
+            "Provide a valid YouTube video, channel, or playlist URL.",
         ));
     }
 
@@ -96,6 +119,14 @@ fn parse_youtube_source(value: &str) -> Result<Source, CommandError> {
         .unwrap_or_default()
         .trim_start_matches("www.")
         .to_ascii_lowercase();
+    if host == "youtu.be" {
+        let id = parsed
+            .path_segments()
+            .and_then(|mut segments| segments.next())
+            .map(decode_path)
+            .unwrap_or_default();
+        return video_source(&id);
+    }
     if host != "youtube.com" && host != "music.youtube.com" {
         return Err(invalid_url());
     }
@@ -108,6 +139,10 @@ fn parse_youtube_source(value: &str) -> Result<Source, CommandError> {
             id: playlist_id.to_string(),
             canonical_url: format!("https://www.youtube.com/playlist?list={}", playlist_id),
         });
+    }
+
+    if let Some((_, video_id)) = parsed.query_pairs().find(|(key, _)| key == "v") {
+        return video_source(&video_id);
     }
 
     let parts: Vec<String> = parsed
@@ -151,6 +186,11 @@ fn parse_youtube_source(value: &str) -> Result<Source, CommandError> {
             id,
         });
     }
+    if matches!(first, "shorts" | "embed" | "live" | "v")
+        && parts.get(1).is_some_and(|part| !part.is_empty())
+    {
+        return video_source(&parts[1]);
+    }
 
     Err(invalid_url())
 }
@@ -159,7 +199,8 @@ fn canonical_url(source: &Source) -> String {
     match source {
         Source::Playlist { canonical_url, .. }
         | Source::Channel { canonical_url, .. }
-        | Source::Custom { canonical_url, .. } => canonical_url.clone(),
+        | Source::Custom { canonical_url, .. }
+        | Source::Video { canonical_url, .. } => canonical_url.clone(),
     }
 }
 
@@ -201,7 +242,7 @@ fn youtube_error(status: StatusCode, body: &Value) -> CommandError {
         ),
         (StatusCode::BAD_REQUEST, _) | (StatusCode::NOT_FOUND, _) => CommandError::new(
             "SOURCE_NOT_FOUND",
-            "YouTube could not find that channel or playlist.",
+            "YouTube could not find that video, channel, or playlist.",
         ),
         _ => CommandError::new(
             "YOUTUBE_REJECTED",
@@ -271,7 +312,9 @@ async fn resolve_channel(
             let channel_id = text_at(&search, "/items/0/snippet/channelId");
             ("id".to_owned(), channel_id)
         }
-        Source::Playlist { .. } => unreachable!("playlist passed to channel resolver"),
+        Source::Playlist { .. } | Source::Video { .. } => {
+            unreachable!("non-channel source passed to channel resolver")
+        }
     };
 
     if identifier.is_empty() {
@@ -460,11 +503,15 @@ pub async fn resolve_youtube_source(
             "This build is missing its YouTube API key.",
         )
     })?;
+    if let Source::Video { id, .. } = &source {
+        return resolve_single_video(&state, id, source_url, &api_key).await;
+    }
     let metadata = match &source {
         Source::Playlist { id, .. } => resolve_playlist(&state, id, &api_key).await?,
         Source::Channel { .. } | Source::Custom { .. } => {
             resolve_channel(&state, &source, &api_key).await?
         }
+        Source::Video { .. } => unreachable!("handled above"),
     };
     let playlist_items = load_playlist_items(&state, &metadata.playlist_id, &api_key).await?;
     let video_ids: Vec<String> = playlist_items
@@ -560,14 +607,44 @@ pub async fn resolve_video(
             "This build is missing its YouTube API key.",
         )
     })?;
+    fetch_video(&state, &video_id, &api_key)
+        .await
+        .map(|(track, _)| track)
+}
+
+/// A single video saved as its own one-track source.
+async fn resolve_single_video(
+    state: &AppState,
+    video_id: &str,
+    source_url: String,
+    api_key: &str,
+) -> Result<Playlist, CommandError> {
+    let (track, video) = fetch_video(state, video_id, api_key).await?;
+    Ok(Playlist {
+        name: track.title.clone(),
+        kind: "YouTube video".to_owned(),
+        description: text_at(&video, "/snippet/description"),
+        thumbnail: best_thumbnail(video.pointer("/snippet/thumbnails").unwrap_or(&Value::Null)),
+        source_url,
+        tracks: vec![track],
+    })
+}
+
+/// `videos.list` for one id, normalized into a Track (plus the raw item for
+/// callers that need more of the snippet).
+async fn fetch_video(
+    state: &AppState,
+    video_id: &str,
+    api_key: &str,
+) -> Result<(Track, Value), CommandError> {
     let response = youtube_get(
-        &state,
+        state,
         "videos",
         vec![
             ("part", "snippet,contentDetails,status".to_owned()),
-            ("id", video_id.clone()),
+            ("id", video_id.to_owned()),
         ],
-        &api_key,
+        api_key,
     )
     .await?;
     let video = response.pointer("/items/0").ok_or_else(|| {
@@ -585,8 +662,8 @@ pub async fn resolve_video(
     let title = text_at(video, "/snippet/title");
     let artist = text_at(video, "/snippet/channelTitle");
 
-    Ok(Track {
-        id: video_id,
+    let track = Track {
+        id: video_id.to_owned(),
         title: if title.is_empty() {
             "Unavailable video".to_owned()
         } else {
@@ -601,7 +678,8 @@ pub async fn resolve_video(
         },
         duration: parse_iso_duration(&text_at(video, "/contentDetails/duration")),
         unavailable,
-    })
+    };
+    Ok((track, video.clone()))
 }
 
 #[cfg(test)]
@@ -619,6 +697,32 @@ mod tests {
             Ok(Source::Playlist { id, .. }) if id == "PL123"
         ));
         assert!(parse_youtube_source("https://example.com/playlist?list=PL123").is_err());
+    }
+
+    #[test]
+    fn parses_single_video_urls() {
+        for url in [
+            "https://www.youtube.com/watch?v=eblCSdq4rzU",
+            "https://youtu.be/eblCSdq4rzU?t=10",
+            "https://www.youtube.com/shorts/eblCSdq4rzU",
+            "youtube.com/embed/eblCSdq4rzU",
+        ] {
+            assert!(
+                matches!(
+                    parse_youtube_source(url),
+                    Ok(Source::Video { id, canonical_url })
+                        if id == "eblCSdq4rzU"
+                            && canonical_url == "https://www.youtube.com/watch?v=eblCSdq4rzU"
+                ),
+                "{url}"
+            );
+        }
+        // A watch URL with a playlist context loads the playlist, as before.
+        assert!(matches!(
+            parse_youtube_source("https://www.youtube.com/watch?v=eblCSdq4rzU&list=PL123"),
+            Ok(Source::Playlist { id, .. }) if id == "PL123"
+        ));
+        assert!(parse_youtube_source("https://www.youtube.com/watch?v=short").is_err());
     }
 
     #[test]

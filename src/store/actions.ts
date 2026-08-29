@@ -170,7 +170,7 @@ export async function handleLoad(requestedUrl?: string): Promise<void> {
   if (requestedUrl) url.set(requestedUrl)
 
   if (desktop && !authStatus()?.authenticated) {
-    error.set('Sign in with Google before loading a YouTube channel or playlist.')
+    error.set('Sign in with Google before loading a YouTube video, channel, or playlist.')
     return
   }
   const validationError = validateYouTubeSource(targetUrl)

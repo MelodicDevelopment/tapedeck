@@ -10,11 +10,18 @@ describe('validateYouTubeSource', () => {
   })
 
   it('requires a value', () => {
-    expect(validateYouTubeSource('')).toBe('Paste a YouTube channel or playlist URL first.')
+    expect(validateYouTubeSource('')).toBe('Paste a YouTube video, channel, or playlist URL first.')
   })
 
-  it('rejects non-YouTube and single-video URLs', () => {
+  it('accepts single-video URLs', () => {
+    expect(validateYouTubeSource('https://www.youtube.com/watch?v=eblCSdq4rzU')).toBe('')
+    expect(validateYouTubeSource('https://youtu.be/dQw4w9WgXcQ')).toBe('')
+    expect(validateYouTubeSource('youtube.com/shorts/dQw4w9WgXcQ')).toBe('')
+  })
+
+  it('rejects non-YouTube URLs and malformed video ids', () => {
     expect(validateYouTubeSource('https://example.com/playlist')).toMatch(/doesn't look/)
-    expect(validateYouTubeSource('https://youtu.be/dQw4w9WgXcQ')).toMatch(/doesn't look/)
+    expect(validateYouTubeSource('https://youtu.be/nope')).toMatch(/doesn't look/)
+    expect(validateYouTubeSource('https://www.youtube.com/watch?v=nope')).toMatch(/doesn't look/)
   })
 })
