@@ -80,9 +80,9 @@ fn invalid_url() -> CommandError {
 /// video we can look up.
 fn is_video_id(value: &str) -> bool {
     value.len() == 11
-        && value
-            .chars()
-            .all(|character| character.is_ascii_alphanumeric() || character == '_' || character == '-')
+        && value.chars().all(|character| {
+            character.is_ascii_alphanumeric() || character == '_' || character == '-'
+        })
 }
 
 fn video_source(id: &str) -> Result<Source, CommandError> {
