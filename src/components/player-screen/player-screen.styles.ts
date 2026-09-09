@@ -71,6 +71,115 @@ export const playerScreenStyles = (): TemplateResult => css`
     color: var(--td-accent);
   }
 
+  /* Mixtape tools under the source card: "add a video" form / convert button. */
+  .queue-tools {
+    margin: 0;
+    padding: 10px 12px 2px;
+  }
+
+  .queue-tools__row {
+    display: flex;
+    gap: 6px;
+  }
+
+  .queue-tools .input--small {
+    height: 36px;
+    padding: 0 12px;
+    border-radius: 9px;
+    font-size: 12.5px;
+  }
+
+  .queue-tools__submit {
+    display: inline-flex;
+    width: 36px;
+    height: 36px;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: center;
+    border: 0;
+    border-radius: 9px;
+    color: var(--td-ink);
+    background: var(--td-accent);
+    cursor: pointer;
+    transition: background-color 120ms ease, opacity 120ms ease;
+  }
+
+  .queue-tools__submit:hover:not(:disabled) {
+    background: var(--td-accent-hover);
+  }
+
+  .queue-tools__submit:disabled {
+    opacity: 0.45;
+    cursor: default;
+  }
+
+  .queue-tools__submit svg {
+    width: 16px;
+    height: 16px;
+  }
+
+  .queue-tools__error {
+    display: flex;
+    align-items: flex-start;
+    gap: 6px;
+    margin: 8px 2px 0;
+    color: #e08a7a;
+    font-size: 11.5px;
+    line-height: 1.4;
+  }
+
+  .queue-tools__error svg {
+    width: 13px;
+    height: 13px;
+    flex: 0 0 auto;
+    margin-top: 1px;
+  }
+
+  .queue-tools__convert {
+    display: flex;
+    width: 100%;
+    align-items: center;
+    gap: 11px;
+    padding: 10px 12px;
+    border: 1px dashed var(--td-border-strong);
+    border-radius: 10px;
+    color: var(--td-muted);
+    background: transparent;
+    cursor: pointer;
+    text-align: left;
+    transition: border-color 120ms ease, color 120ms ease, background-color 120ms ease;
+  }
+
+  .queue-tools__convert:hover {
+    border-color: var(--td-accent);
+    color: var(--td-text);
+    background: var(--td-accent-dim);
+  }
+
+  .queue-tools__convert > svg {
+    width: 18px;
+    height: 18px;
+    flex: 0 0 auto;
+    color: var(--td-accent);
+  }
+
+  .queue-tools__convert-copy {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    gap: 1px;
+  }
+
+  .queue-tools__convert-copy strong {
+    font-size: 12.5px;
+    font-weight: 650;
+  }
+
+  .queue-tools__convert-copy span {
+    color: var(--td-faint);
+    font-size: 11px;
+  }
+
   .track-list {
     min-height: 0;
     margin: 0;

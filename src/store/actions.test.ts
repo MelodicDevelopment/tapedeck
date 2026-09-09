@@ -380,6 +380,73 @@ describe('store actions (browser build)', () => {
     expect(player.playing()).toBe(true)
   })
 
+  it('converts the playing single video into a mixtape without restarting playback', async () => {
+    const singleVideo = {
+      name: 'Just one song',
+      kind: 'YouTube video',
+      description: '',
+      thumbnail: '',
+      sourceUrl: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+      tracks: [{ id: 'dQw4w9WgXcQ', title: 'Just one song', artist: 'Artist', duration: 213 }],
+    }
+    stubResolve(singleVideo)
+    await actions.handleLoad(singleVideo.sourceUrl)
+    player.reportProgress(90, 213)
+    expect(player.playing()).toBe(true)
+
+    const mixtapeId = actions.convertSourceToMixtape(singleVideo.sourceUrl)
+    expect(mixtapeId).toBeTruthy()
+    expect(playingMixtapeId()).toBe(mixtapeId)
+    expect(library().sources).toHaveLength(0)
+    expect(library().mixtapes[0].name).toBe('Just one song')
+    expect(library().mixtapes[0].lastPositionSecs).toBe(90)
+    expect(activePlaylist()?.kind).toBe('Mixtape')
+    expect(activePlaylist()?.tracks.map((t) => t.id)).toEqual(['dQw4w9WgXcQ'])
+    // Playback carried straight on: same track, position, and playing state.
+    expect(player.currentIndex()).toBe(0)
+    expect(player.elapsed()).toBe(90)
+    expect(player.playing()).toBe(true)
+    expect(view()).toBe('loaded')
+  })
+
+  it('adds a pasted video to the playing mixtape and rejects non-video links', async () => {
+    stubResolve(twoTrackPlaylist)
+    await actions.handleLoad('https://www.youtube.com/@two-tracks')
+    actions.createMixtape('Road trip', twoTrackPlaylist.tracks[0])
+    const mixtapeId = library().mixtapes[0].id
+    actions.playMixtape(mixtapeId)
+
+    await expect(actions.addVideoToMixtape(mixtapeId, 'https://www.youtube.com/@channel')).rejects.toThrow(
+      /video link/,
+    )
+    actions.toggleMixtapeTrack(mixtapeId, { id: 'dQw4w9WgXcQ', title: 'Dup', artist: 'Artist', duration: 100 })
+    await expect(actions.addVideoToMixtape(mixtapeId, 'https://youtu.be/dQw4w9WgXcQ')).rejects.toThrow(/already/)
+    actions.toggleMixtapeTrack(mixtapeId, { id: 'dQw4w9WgXcQ', title: 'Dup', artist: 'Artist', duration: 100 })
+
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          name: 'New one',
+          kind: 'YouTube video',
+          description: '',
+          thumbnail: '',
+          sourceUrl: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+          tracks: [{ id: 'dQw4w9WgXcQ', title: 'New one', artist: 'Artist', duration: 100 }],
+        }),
+        { status: 200, headers: { 'content-type': 'application/json' } },
+      ),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+    const added = await actions.addVideoToMixtape(mixtapeId, 'https://www.youtube.com/watch?v=dQw4w9WgXcQ&list=PL1')
+    expect(added.id).toBe('dQw4w9WgXcQ')
+    // Resolved as the bare video, not the playlist the link was inside.
+    expect(JSON.parse((fetchMock.mock.calls[0][1] as RequestInit).body as string).url).toBe(
+      'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+    )
+    expect(activePlaylist()?.tracks.map((t) => t.id)).toEqual(['trackA', 'dQw4w9WgXcQ'])
+    expect(player.currentIndex()).toBe(0)
+  })
+
   it('keeps the player behind the welcome overlay and returns to it', async () => {
     await actions.handleLoad('https://www.youtube.com/@lofihiphopmusic')
     actions.changeSource()

@@ -23,3 +23,36 @@ export function validateYouTubeSource(value: string) {
     return "That doesn't look like a YouTube video, channel, or playlist link. Check the URL and try again."
   }
 }
+
+/**
+ * The 11-character video id from any YouTube video link (watch, youtu.be,
+ * shorts, embed, live), or null when the URL isn't a single video. A watch
+ * URL that also carries a `list` param still counts as its video — callers
+ * that want just the video should re-resolve via `videoWatchUrl`.
+ */
+export function extractYouTubeVideoId(value: string): string | null {
+  const trimmed = value.trim()
+  if (!trimmed) return null
+  const videoId = /^[A-Za-z0-9_-]{11}$/
+  try {
+    const normalized = /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`
+    const parsed = new URL(normalized)
+    const host = parsed.hostname.toLowerCase().replace(/^www\./, '').replace(/^m\./, '')
+    if (host === 'youtu.be') {
+      const id = parsed.pathname.split('/').filter(Boolean)[0] ?? ''
+      return videoId.test(id) ? id : null
+    }
+    if (host !== 'youtube.com' && host !== 'music.youtube.com') return null
+    const fromQuery = parsed.searchParams.get('v') ?? ''
+    if (videoId.test(fromQuery)) return fromQuery
+    const fromPath = /^\/(?:shorts|embed|live|v)\/([A-Za-z0-9_-]{11})(?:\/|$)/.exec(parsed.pathname)
+    return fromPath ? fromPath[1] : null
+  } catch {
+    return null
+  }
+}
+
+/** Canonical single-video URL, so resolvers don't prefer a `list` param on it. */
+export function videoWatchUrl(videoId: string): string {
+  return `https://www.youtube.com/watch?v=${videoId}`
+}

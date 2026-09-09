@@ -6,11 +6,14 @@ import { onMediaControl, updateMediaMetadata, updateMediaPlayback } from '../api
 import { syncLibrary } from '../api/sync'
 import { restartToUpdate as installStagedUpdate, stageUpdate } from '../api/updates'
 import { resolveVideo, resolveYouTubeSource, TapedeckApiError } from '../api/youtube'
-import { thumbnailUrl, type Track } from '../data/mockPlaylist'
+import { thumbnailUrl, type Playlist, type Track } from '../data/mockPlaylist'
 import {
+  addMixtapeTracks,
+  convertSourceToMixtape as libConvertSourceToMixtape,
   createMixtape as libCreateMixtape,
   deleteMixtape as libDeleteMixtape,
   mergeLibrary,
+  mixtapeHasTrack,
   normalizeLibrary,
   recordPlaybackProgress,
   removeSource,
@@ -22,7 +25,7 @@ import {
   type Library,
   type PlaybackTarget,
 } from '../lib/library'
-import { validateYouTubeSource } from '../lib/validation'
+import { extractYouTubeVideoId, validateYouTubeSource, videoWatchUrl } from '../lib/validation'
 import * as player from './player'
 import {
   activePlaylist,
@@ -382,6 +385,64 @@ function setTrackHidden(trackId: string, hidden: boolean): void {
 
 export function createMixtape(name: string, track: Track): void {
   commitLibrary(libCreateMixtape(library(), name, track))
+}
+
+/**
+ * Turn a saved source (a single video, typically) into a mixtape of the same
+ * name and drop the source. If that source is what's playing, playback
+ * carries straight on as the new mixtape without restarting the track.
+ */
+export function convertSourceToMixtape(sourceUrl: string): string | null {
+  const wasPlaying = !playingMixtapeId() && playlist()?.sourceUrl === sourceUrl
+  if (wasPlaying) flushProgressForCurrent()
+  const converted = libConvertSourceToMixtape(library(), sourceUrl)
+  if (!converted) return null
+  commitLibrary(converted.library)
+  if (wasPlaying) {
+    requestController?.abort()
+    const previousQueueTrackId = player.queueTrackId()
+    playlist.set(null)
+    playingMixtapeId.set(converted.mixtape.id)
+    // Same tracks, same position — just re-key the queue onto the mixtape
+    // instead of resetting playback as a fresh load would.
+    activeKey = `tapedeck://mixtape/${converted.mixtape.id}`
+    player.syncWithPlaylist(previousQueueTrackId)
+    mutateLibrary((current) => touchLastPlayed(current, { type: 'mixtape', id: converted.mixtape.id }))
+  }
+  return converted.mixtape.id
+}
+
+/**
+ * Resolve a pasted YouTube video link and append it to a mixtape. Resolves
+ * to the track that was added, or throws with a user-facing message.
+ */
+export async function addVideoToMixtape(mixtapeId: string, videoUrl: string): Promise<Track> {
+  if (desktop && !authStatus()?.authenticated) {
+    throw new Error('Sign in with Google before adding a YouTube video.')
+  }
+  const videoId = extractYouTubeVideoId(videoUrl)
+  if (!videoId) {
+    throw new Error("That doesn't look like a YouTube video link. Paste a single video URL.")
+  }
+  const mixtape = library().mixtapes.find((entry) => entry.id === mixtapeId)
+  if (!mixtape) throw new Error('That mixtape no longer exists.')
+  if (mixtapeHasTrack(mixtape, videoId)) throw new Error('That video is already in this mixtape.')
+
+  let resolved: Playlist
+  try {
+    resolved = await resolveYouTubeSource(videoWatchUrl(videoId))
+  } catch (loadError) {
+    throw new Error(
+      loadError instanceof TapedeckApiError ? loadError.message : 'Tapedeck could not load that video.',
+    )
+  }
+  const track = resolved.tracks[0]
+  if (!track) throw new Error('Tapedeck could not load that video.')
+
+  const previousQueueTrackId = player.queueTrackId()
+  mutateLibrary((current) => addMixtapeTracks(current, mixtapeId, [track]))
+  if (playingMixtapeId() === mixtapeId) player.syncWithPlaylist(previousQueueTrackId)
+  return track
 }
 
 export function removeSavedSource(sourceUrl: string): void {

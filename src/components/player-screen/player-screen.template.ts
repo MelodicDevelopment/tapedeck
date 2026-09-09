@@ -22,6 +22,7 @@ export function playerScreenTemplate(c: PlayerScreenComponent): TemplateResult {
       <div class="player-workspace">
         <aside class="queue-panel" aria-label="Video queue">
           <td-source-switcher></td-source-switcher>
+          ${queueTools(c, playlist)}
 
           <div class="queue-heading">
             <span>${unsafeHTML(icon('listMusic'))} Up next</span>
@@ -128,6 +129,58 @@ export function playerScreenTemplate(c: PlayerScreenComponent): TemplateResult {
       ${c.pickerTrack() ? html`<td-mixtape-picker></td-mixtape-picker>` : html``}
       ${c.shortcutsOpen() ? html`<td-shortcuts-modal></td-shortcuts-modal>` : html``}
     </main>
+  `
+}
+
+/** Mixtape editing affordances: paste a video link to append it to the
+ *  playing mixtape, or turn a single-video source into a mixtape so more
+ *  videos can be added to it. */
+function queueTools(c: PlayerScreenComponent, playlist: Playlist): TemplateResult {
+  const mixtapeId = c.playingMixtapeId()
+  if (mixtapeId) {
+    const error = c.addError
+    return html`
+      <form class="queue-tools" @submit=${(event: Event) => c.submitAddVideo(event)} novalidate>
+        <div class="queue-tools__row">
+          <input
+            class=${error ? 'input input--small input--error' : 'input input--small'}
+            .value=${c.addUrl}
+            @input=${(event: Event) => c.onAddUrlInput(event)}
+            placeholder="Paste a YouTube video URL to add…"
+            aria-label="YouTube video URL to add to this mixtape"
+            aria-invalid=${error ? 'true' : 'false'}
+            autocapitalize="none"
+            autocorrect="off"
+            spellcheck="false"
+            ?disabled=${c.adding}
+          />
+          <button
+            type="submit"
+            class="queue-tools__submit"
+            ?disabled=${c.adding || !c.addUrl.trim()}
+            aria-label="Add video to this mixtape"
+            title="Add video to this mixtape"
+          >
+            ${c.adding ? unsafeHTML(icon('loaderCircle', { class: 'spin' })) : unsafeHTML(icon('plus'))}
+          </button>
+        </div>
+        ${error
+          ? html`<p class="queue-tools__error" role="alert">${unsafeHTML(icon('alertCircle'))} ${error}</p>`
+          : html``}
+      </form>
+    `
+  }
+  if (!c.isSingleVideoSource(playlist)) return html``
+  return html`
+    <div class="queue-tools">
+      <button type="button" class="queue-tools__convert" @click=${() => c.convertToMixtape()}>
+        ${unsafeHTML(icon('cassetteTape'))}
+        <span class="queue-tools__convert-copy">
+          <strong>Turn into a mixtape</strong>
+          <span>Then add more videos to it</span>
+        </span>
+      </button>
+    </div>
   `
 }
 

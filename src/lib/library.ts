@@ -258,6 +258,50 @@ export function createMixtape(library: Library, name: string, firstTrack: Track)
   return { ...library, mixtapes: [mixtape, ...library.mixtapes] }
 }
 
+/** Append the given tracks to a mixtape, skipping any it already has. */
+export function addMixtapeTracks(library: Library, mixtapeId: string, tracks: Track[]): Library {
+  return {
+    ...library,
+    mixtapes: library.mixtapes.map((mixtape) => {
+      if (mixtape.id !== mixtapeId) return mixtape
+      const fresh = tracks.filter((track) => !mixtapeHasTrack(mixtape, track.id))
+      if (fresh.length === 0) return mixtape
+      return { ...mixtape, tracks: [...mixtape.tracks, ...fresh], updatedAt: new Date().toISOString() }
+    }),
+  }
+}
+
+/**
+ * Turn a saved source (typically a single video) into a mixtape of the same
+ * name holding its visible tracks, carrying over its resume position, and
+ * remove the source from the library. Returns null when the source isn't
+ * saved or has nothing playable to carry over.
+ */
+export function convertSourceToMixtape(
+  library: Library,
+  sourceUrl: string,
+): { library: Library; mixtape: Mixtape } | null {
+  const source = library.sources.find((entry) => entry.url === sourceUrl)
+  if (!source) return null
+  const { visible } = partitionSourceTracks(source.tracks, source.hiddenTrackIds)
+  if (visible.length === 0) return null
+  const now = new Date().toISOString()
+  const mixtape: Mixtape = {
+    id: generateId(),
+    name: source.name.trim() || 'Untitled mixtape',
+    createdAt: now,
+    updatedAt: now,
+    tracks: visible,
+    lastTrackId: source.lastTrackId,
+    lastPositionSecs: source.lastPositionSecs,
+    lastPlayedAt: source.lastPlayedAt,
+  }
+  return {
+    library: { ...removeSource(library, sourceUrl), mixtapes: [mixtape, ...library.mixtapes] },
+    mixtape,
+  }
+}
+
 export function mixtapeHasTrack(mixtape: Mixtape, trackId: string): boolean {
   return mixtape.tracks.some((track) => track.id === trackId)
 }

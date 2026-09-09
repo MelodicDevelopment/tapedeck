@@ -1,6 +1,14 @@
 import { MelodicComponent } from '@melodicdev/core'
-import type { Track } from '../../data/mockPlaylist'
-import { changeSource, hideSourceTrack, reorderMixtapeTrack, toggleMixtapeTrack, unhideSourceTrack } from '../../store/actions'
+import type { Playlist, Track } from '../../data/mockPlaylist'
+import {
+  addVideoToMixtape,
+  changeSource,
+  convertSourceToMixtape,
+  hideSourceTrack,
+  reorderMixtapeTrack,
+  toggleMixtapeTrack,
+  unhideSourceTrack,
+} from '../../store/actions'
 import {
   currentIndex,
   externalVideo,
@@ -51,6 +59,11 @@ export class PlayerScreenComponent {
 
   /** Whether the "Hidden" section at the bottom of the queue is expanded. */
   public showHidden = false
+
+  /** "Add a video" form state while a mixtape is playing. */
+  public addUrl = ''
+  public addError = ''
+  public adding = false
 
   // CSS :hover never re-evaluates on scroll, only on actual pointer
   // movement — scrolling a row under a stationary cursor leaves it (or the
@@ -125,6 +138,42 @@ export class PlayerScreenComponent {
 
   public unhideTrack(track: Track): void {
     unhideSourceTrack(track.id)
+  }
+
+  public isSingleVideoSource(playlist: Playlist): boolean {
+    return !this.playingMixtapeId() && /video/i.test(playlist.kind)
+  }
+
+  public convertToMixtape(): void {
+    const sourceUrl = this.activePlaylist()?.sourceUrl
+    if (!sourceUrl) return
+    this.addUrl = ''
+    this.addError = ''
+    convertSourceToMixtape(sourceUrl)
+  }
+
+  public onAddUrlInput(event: Event): void {
+    this.addUrl = (event.target as HTMLInputElement).value
+    this.addError = ''
+  }
+
+  public submitAddVideo(event: Event): void {
+    event.preventDefault()
+    const mixtapeId = this.playingMixtapeId()
+    const videoUrl = this.addUrl.trim()
+    if (!mixtapeId || !videoUrl || this.adding) return
+    this.adding = true
+    this.addError = ''
+    addVideoToMixtape(mixtapeId, videoUrl)
+      .then(() => {
+        this.addUrl = ''
+      })
+      .catch((caught: unknown) => {
+        this.addError = caught instanceof Error ? caught.message : 'Tapedeck could not add that video.'
+      })
+      .finally(() => {
+        this.adding = false
+      })
   }
 
   public toggleHidden(): void {

@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import type { Track } from '../data/mockPlaylist'
 import {
+  addMixtapeTracks,
+  convertSourceToMixtape,
   createMixtape,
   deleteMixtape,
   emptyLibrary,
@@ -124,6 +126,56 @@ describe('mixtapes', () => {
     expect(playlist.name).toBe('Mix')
     expect(playlist.tracks).toEqual([track('abc')])
     expect(playlist.thumbnail).toContain('abc')
+  })
+})
+
+describe('addMixtapeTracks', () => {
+  it('appends new tracks and skips ones the mixtape already has', () => {
+    let library = createMixtape(emptyLibrary(), 'Mix', track('a'))
+    const id = library.mixtapes[0].id
+    const before = library.mixtapes[0].updatedAt
+    library = addMixtapeTracks(library, id, [track('a'), track('b'), track('c')])
+    expect(library.mixtapes[0].tracks.map((t) => t.id)).toEqual(['a', 'b', 'c'])
+    expect(library.mixtapes[0].updatedAt >= before).toBe(true)
+  })
+
+  it('leaves the mixtape untouched when nothing new is added', () => {
+    const library = createMixtape(emptyLibrary(), 'Mix', track('a'))
+    const next = addMixtapeTracks(library, library.mixtapes[0].id, [track('a')])
+    expect(next.mixtapes[0]).toBe(library.mixtapes[0])
+  })
+})
+
+describe('convertSourceToMixtape', () => {
+  it('turns a saved source into a same-named mixtape and removes the source', () => {
+    let library = upsertSource(emptyLibrary(), {
+      ...source('https://www.youtube.com/watch?v=abc'),
+      name: 'Single video',
+      kind: 'YouTube video',
+      tracks: [track('abc')],
+    })
+    library = recordPlaybackProgress(library, { type: 'source', url: 'https://www.youtube.com/watch?v=abc' }, 'abc', 42)
+    const converted = convertSourceToMixtape(library, 'https://www.youtube.com/watch?v=abc')
+    expect(converted).not.toBeNull()
+    const { library: next, mixtape } = converted!
+    expect(next.sources).toHaveLength(0)
+    expect(next.deletedSourceUrls.map((t) => t.id)).toEqual(['https://www.youtube.com/watch?v=abc'])
+    expect(next.mixtapes[0]).toBe(mixtape)
+    expect(mixtape.name).toBe('Single video')
+    expect(mixtape.tracks.map((t) => t.id)).toEqual(['abc'])
+    expect(mixtape.lastTrackId).toBe('abc')
+    expect(mixtape.lastPositionSecs).toBe(42)
+  })
+
+  it('carries over only the visible (unhidden) tracks', () => {
+    let library = upsertSource(emptyLibrary(), { ...source('u'), tracks: [track('a'), track('b')] })
+    library = setSourceTrackHidden(library, 'u', 'b', true)
+    const converted = convertSourceToMixtape(library, 'u')
+    expect(converted?.mixtape.tracks.map((t) => t.id)).toEqual(['a'])
+  })
+
+  it('returns null for an unknown source', () => {
+    expect(convertSourceToMixtape(emptyLibrary(), 'nope')).toBeNull()
   })
 })
 
