@@ -140,4 +140,6 @@ One hard boundary: Tapedeck plays YouTube through the official embed and APIs. P
 
 [MIT](LICENSE) © Rick Hopkins (Melodic Development)
 
+Downloads and auto-updates are served from [GitHub Releases](https://github.com/MelodicDevelopment/tapedeck/releases). The marketing site in `web/` is not currently deployed.
+
 Tapedeck is an independent project, not affiliated with or endorsed by YouTube or Google. YouTube is a trademark of Google LLC.
