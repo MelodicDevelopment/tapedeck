@@ -768,7 +768,10 @@ pub async fn search_youtube(
     if !response.status().is_success() {
         return Err(CommandError::new(
             "YOUTUBE_SEARCH_FAILED",
-            format!("YouTube search failed (HTTP {}).", response.status().as_u16()),
+            format!(
+                "YouTube search failed (HTTP {}).",
+                response.status().as_u16()
+            ),
         ));
     }
     let payload = response.json::<Value>().await.map_err(|_| {
@@ -785,7 +788,9 @@ pub async fn search_youtube(
 /// that isn't a plain video (shelves, ads, channels) is skipped.
 fn parse_search_results(payload: &Value) -> Vec<SearchResult> {
     let sections = payload
-        .pointer("/contents/twoColumnSearchResultsRenderer/primaryContents/sectionListRenderer/contents")
+        .pointer(
+            "/contents/twoColumnSearchResultsRenderer/primaryContents/sectionListRenderer/contents",
+        )
         .and_then(Value::as_array);
     let Some(sections) = sections else {
         return Vec::new();
