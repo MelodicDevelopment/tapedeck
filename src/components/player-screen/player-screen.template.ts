@@ -1,5 +1,6 @@
 import { html, repeat, unsafeHTML, type TemplateResult } from '@melodicdev/core'
 import { formatTime, thumbnailUrl, type Playlist, type Track } from '../../data/mockPlaylist'
+import { creatorPageUrl, videoPageUrl } from '../../lib/youtubeLinks'
 import { parseVolumeBadge } from '../../lib/trackTitle'
 import { icon } from '../../ui/icons'
 import type { PlayerScreenComponent } from './player-screen.component'
@@ -14,8 +15,8 @@ export function playerScreenTemplate(c: PlayerScreenComponent): TemplateResult {
   // Nothing to show in audio mode when the track can't play at all — fall
   // back to the video frame's own unavailable-state message.
   const showAudioMode = mode === 'audio' && !unavailable
-  const watchUrl = `https://www.youtube.com/watch?v=${track.id}`
-  const channelUrl = playlist.sourceUrl.startsWith('http') ? playlist.sourceUrl : null
+  const watchUrl = videoPageUrl(track.id)
+  const channelUrl = creatorPageUrl(track, playlist)
 
   return html`
     <main class="loaded-shell">
@@ -126,19 +127,21 @@ export function playerScreenTemplate(c: PlayerScreenComponent): TemplateResult {
 
       <td-playback-bar></td-playback-bar>
 
-      ${c.pickerTrack() ? html`<td-mixtape-picker></td-mixtape-picker>` : html``}
       ${c.shortcutsOpen() ? html`<td-shortcuts-modal></td-shortcuts-modal>` : html``}
     </main>
   `
 }
 
-/** Mixtape editing affordances: paste a video link to append it to the
- *  playing mixtape, or turn a single-video source into a mixtape so more
- *  videos can be added to it. */
+/** Mixtape editing affordances: search YouTube or paste a video link to
+ *  append to the playing mixtape, or turn a single-video source into a
+ *  mixtape so more videos can be added to it. */
 function queueTools(c: PlayerScreenComponent, playlist: Playlist): TemplateResult {
   const mixtapeId = c.playingMixtapeId()
   if (mixtapeId) {
     const error = c.addError
+    const isLink = c.addInputIsLink()
+    const busy = c.adding
+    const actionLabel = isLink ? 'Add video to this mixtape' : 'Search YouTube'
     return html`
       <form class="queue-tools" @submit=${(event: Event) => c.submitAddVideo(event)} novalidate>
         <div class="queue-tools__row">
@@ -146,8 +149,8 @@ function queueTools(c: PlayerScreenComponent, playlist: Playlist): TemplateResul
             class=${error ? 'input input--small input--error' : 'input input--small'}
             .value=${c.addUrl}
             @input=${(event: Event) => c.onAddUrlInput(event)}
-            placeholder="Paste a YouTube video URL to add…"
-            aria-label="YouTube video URL to add to this mixtape"
+            placeholder="Search YouTube or paste a video link…"
+            aria-label="Search YouTube or paste a video link to add to this mixtape"
             aria-invalid=${error ? 'true' : 'false'}
             autocapitalize="none"
             autocorrect="off"
@@ -157,11 +160,13 @@ function queueTools(c: PlayerScreenComponent, playlist: Playlist): TemplateResul
           <button
             type="submit"
             class="queue-tools__submit"
-            ?disabled=${c.adding || !c.addUrl.trim()}
-            aria-label="Add video to this mixtape"
-            title="Add video to this mixtape"
+            ?disabled=${busy || !c.addUrl.trim()}
+            aria-label=${actionLabel}
+            title=${actionLabel}
           >
-            ${c.adding ? unsafeHTML(icon('loaderCircle', { class: 'spin' })) : unsafeHTML(icon('plus'))}
+            ${busy
+              ? unsafeHTML(icon('loaderCircle', { class: 'spin' }))
+              : unsafeHTML(icon(isLink ? 'plus' : 'search'))}
           </button>
         </div>
         ${error
@@ -358,20 +363,40 @@ function hiddenSection(c: PlayerScreenComponent): TemplateResult {
 }
 
 function nowPlayingLabel(c: PlayerScreenComponent): TemplateResult {
-  if (c.externalVideo()) {
+  const external = c.externalVideo()
+  const current = c.track()
+  const addButton = c.showStageAdd() && current
+    ? html`
+        <button
+          type="button"
+          class="track-details__add-to-mixtape"
+          @click=${() => c.pickCurrentTrack()}
+          aria-label=${`Add ${current.title} to a mixtape`}
+        >
+          ${unsafeHTML(icon('listPlus'))} Add to mixtape
+        </button>
+      `
+    : html``
+  if (external) {
     return html`
-      <button type="button" class="track-details__back-to-queue" @click=${() => c.returnToQueue()}>
-        ${unsafeHTML(icon('arrowLeft'))} Back to queue
-      </button>
+      <div class="track-details__external-actions">
+        <button type="button" class="track-details__back-to-queue" @click=${() => c.returnToQueue()}>
+          ${unsafeHTML(icon('arrowLeft'))} Back to queue
+        </button>
+        ${addButton}
+      </div>
     `
   }
   return html`
-    <p class="track-details__label">
-      NOW PLAYING
-      ${c.externalVideoLoading()
-        ? unsafeHTML(icon('loaderCircle', { class: 'track-details__loading spin' }))
-        : html``}
-    </p>
+    <div class="track-details__external-actions">
+      <p class="track-details__label">
+        NOW PLAYING
+        ${c.externalVideoLoading()
+          ? unsafeHTML(icon('loaderCircle', { class: 'track-details__loading spin' }))
+          : html``}
+      </p>
+      ${addButton}
+    </div>
   `
 }
 

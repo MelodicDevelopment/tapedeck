@@ -19,6 +19,7 @@
     "allow-sign-out-google",
     "allow-resolve-youtube-source",
     "allow-resolve-video",
+    "allow-search-youtube",
     "allow-media-set-metadata",
     "allow-media-set-playback",
     "allow-load-library",
@@ -26,6 +27,7 @@
     "allow-export-library",
     "allow-drive-download-library",
     "allow-drive-upload-library",
-    "allow-drive-touch-device"
+    "allow-drive-touch-device",
+    "allow-open-external"
   ]
 }

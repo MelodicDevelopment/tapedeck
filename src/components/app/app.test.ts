@@ -22,6 +22,7 @@ import '../sync-chip'
 import '../library-card'
 import '../source-switcher'
 import '../welcome-screen'
+import '../search-results'
 import '../player-screen'
 import '../playback-bar'
 import '../youtube-player'
@@ -69,16 +70,46 @@ function flush(): Promise<void> {
 
 /** The last created fake player and the YT API calls it received. */
 let ytCalls: string[] = []
+let lastFakePlayer: FakePlayer | null = null
+function registerFakePlayer(player: FakePlayer): void {
+  lastFakePlayer = player
+}
 
-function installFakeYouTubePlayer(): void {
-  ytCalls = []
-  class FakePlayer {
+const YT_STATE = { UNSTARTED: -1, ENDED: 0, PLAYING: 1, PAUSED: 2, BUFFERING: 3, CUED: 5 }
+
+/** When true, the fake player ignores playVideo() the way YouTube sometimes
+ *  does right after onReady, leaving the video cued. */
+let dropPlayRequests = false
+
+class FakePlayer {
     private _iframe: HTMLIFrameElement
+    private _state = YT_STATE.UNSTARTED
+    private _onStateChange: ((event: { data: number }) => void) | undefined
 
-    public constructor(element: HTMLElement, options: { events?: { onReady?: (event: { target: FakePlayer }) => void } }) {
+    public constructor(
+      element: HTMLElement,
+      options: {
+        events?: {
+          onReady?: (event: { target: FakePlayer }) => void
+          onStateChange?: (event: { data: number }) => void
+        }
+      },
+    ) {
+      registerFakePlayer(this)
       this._iframe = document.createElement('iframe')
       element.replaceWith(this._iframe)
+      this._onStateChange = options.events?.onStateChange
       options.events?.onReady?.({ target: this })
+    }
+
+    public getPlayerState(): number {
+      return this._state
+    }
+
+    /** Simulates YouTube reporting a state change. */
+    public emitState(state: number): void {
+      this._state = state
+      this._onStateChange?.({ data: state })
     }
 
     public destroy(): void {
@@ -99,20 +130,26 @@ function installFakeYouTubePlayer(): void {
 
     public playVideo(): void {
       ytCalls.push('playVideo')
+      if (!dropPlayRequests) this.emitState(YT_STATE.PLAYING)
     }
 
     public pauseVideo(): void {
       ytCalls.push('pauseVideo')
+      this.emitState(YT_STATE.PAUSED)
     }
 
     public seekTo(seconds: number): void {
       ytCalls.push(`seekTo:${seconds}`)
     }
-  }
+}
 
+function installFakeYouTubePlayer(): void {
+  ytCalls = []
+  lastFakePlayer = null
+  dropPlayRequests = false
   Reflect.set(window, 'YT', {
     Player: FakePlayer,
-    PlayerState: { ENDED: 0, PLAYING: 1, PAUSED: 2 },
+    PlayerState: YT_STATE,
   })
 }
 
@@ -316,4 +353,199 @@ describe('td-app (DOM)', () => {
     const rows = deepQueryAll('.source-switcher__row')
     expect(rows.some((row) => row.textContent?.includes('Road trip'))).toBe(true)
   })
+
+  const searchResponse = {
+    results: [
+      {
+        id: 'dQw4w9WgXcQ',
+        title: 'Fetched song (official video)',
+        channel: 'Fetched artist',
+        channelId: 'UC123',
+        duration: 213,
+        thumbnail: 'https://i.ytimg.com/vi/dQw4w9WgXcQ/mqdefault.jpg',
+      },
+    ],
+  }
+
+  function stubSearchFetch(): ReturnType<typeof vi.mocked<typeof fetch>> {
+    const fetchMock = vi.mocked(fetch)
+    fetchMock.mockImplementation(async (input: RequestInfo | URL) => {
+      const url = String(input)
+      const body = url.includes('/api/youtube/search') ? searchResponse : apiPlaylist
+      return new Response(JSON.stringify(body), { status: 200, headers: { 'content-type': 'application/json' } })
+    })
+    return fetchMock
+  }
+
+  it('searches YouTube from the welcome field and plays a result with no player active', async () => {
+    const fetchMock = stubSearchFetch()
+    await mountApp()
+
+    const input = deepQuery('.source-form .input') as HTMLInputElement
+    input.value = 'fetched song'
+    input.dispatchEvent(new Event('input', { bubbles: true }))
+    await flush()
+    expect(deepQuery('.source-form button[type="submit"]')?.textContent?.trim()).toBe('Search')
+
+    ;(deepQuery('form.source-form') as HTMLFormElement).dispatchEvent(
+      new Event('submit', { bubbles: true, cancelable: true }),
+    )
+    await flush()
+    await flush()
+
+    const searchCall = fetchMock.mock.calls.find(([request]) => String(request).includes('/api/youtube/search'))
+    expect(String(searchCall?.[0])).toContain('q=fetched%20song')
+    expect(deepQuery('td-search-results')).toBeTruthy()
+    const cards = deepQueryAll('.result-card')
+    expect(cards).toHaveLength(1)
+    expect(cards[0].textContent).toContain('Fetched song (official video)')
+    expect(cards[0].textContent).toContain('Fetched artist')
+
+    // Play: becomes an unsaved one-video playlist on the player screen.
+    ;(deepQuery('.result-card__art') as HTMLButtonElement).click()
+    await flush()
+    const { activePlaylist, library } = await import('../../store/state')
+    const player = await import('../../store/player')
+    expect(activePlaylist()?.tracks.map((track) => track.id)).toEqual(['dQw4w9WgXcQ'])
+    expect(player.track()?.artist).toBe('Fetched artist')
+    expect(library().sources).toHaveLength(0)
+    expect(deepQuery('td-player-screen')).toBeTruthy()
+    expect(deepQuery('.welcome-shell--overlay')).toBeFalsy()
+    // The stage offers to save the unsaved preview to a mixtape.
+    expect(deepQuery('.track-details__add-to-mixtape')).toBeTruthy()
+  })
+
+  it('searches from the mixtape add field, previews inline, and adds via the picker', async () => {
+    await mountApp()
+    await loadPlaylist()
+    const { library, searchResults } = await import('../../store/state')
+    const actions = await import('../../store/actions')
+    const player = await import('../../store/player')
+    actions.createMixtape('Road trip', apiPlaylist.tracks[1])
+    actions.playMixtape(library().mixtapes[0].id)
+    await flush()
+    stubSearchFetch()
+
+    const input = deepQuery('.queue-tools .input') as HTMLInputElement
+    input.value = 'fetched song'
+    input.dispatchEvent(new Event('input', { bubbles: true }))
+    await flush()
+    expect((deepQuery('.queue-tools__submit') as HTMLButtonElement).getAttribute('aria-label')).toBe('Search YouTube')
+    ;(deepQuery('form.queue-tools') as HTMLFormElement).dispatchEvent(
+      new Event('submit', { bubbles: true, cancelable: true }),
+    )
+    await flush()
+    await flush()
+
+    // Results open as a full screen over the player.
+    expect(deepQuery('.welcome-shell--overlay')).toBeTruthy()
+    expect(deepQuery('td-search-results')).toBeTruthy()
+    expect(deepQueryAll('.result-card')).toHaveLength(1)
+
+    // Clicking a result previews it inline and returns to the player.
+    ;(deepQuery('.result-card__title') as HTMLButtonElement).click()
+    await flush()
+    expect(player.externalVideo()?.id).toBe('dQw4w9WgXcQ')
+    expect(player.queueTrackId()).toBe('private-video')
+    expect(deepQuery('.welcome-shell--overlay')).toBeFalsy()
+    expect(searchResults()).not.toBeNull()
+
+    // Back on the stage: add the preview to a mixtape through the picker.
+    const addToMixtape = deepQuery('.track-details__add-to-mixtape') as HTMLButtonElement
+    expect(addToMixtape).toBeTruthy()
+    addToMixtape.click()
+    await flush()
+    expect(player.pickerTrack()?.id).toBe('dQw4w9WgXcQ')
+    expect(deepQuery('td-mixtape-picker')).toBeTruthy()
+    ;(deepQuery('.mixtape-option') as HTMLButtonElement)?.click()
+    await flush()
+    expect(library().mixtapes[0].tracks.map((track) => track.id)).toEqual(['private-video', 'dQw4w9WgXcQ'])
+    player.pickerTrack.set(null)
+    await flush()
+
+    // Reopen the results: the card now shows which mixtape holds it, and
+    // closing returns to the library grid.
+    actions.changeSource()
+    await flush()
+    expect(deepQuery('.result-card__saved')?.textContent).toContain('Road trip')
+    ;(deepQuery('.results__close') as HTMLButtonElement).click()
+    await flush()
+    expect(deepQuery('td-search-results')).toBeFalsy()
+    expect(searchResults()).toBeNull()
+  })
+
+  it('keeps source switcher rows mounted across progress checkpoints (no thumbnail flash)', async () => {
+    await mountApp()
+    await loadPlaylist()
+    const trigger = deepQuery('.source-card__trigger') as HTMLButtonElement
+    trigger.click()
+    await flush()
+
+    const before = deepQueryAll('.source-switcher__row')
+    expect(before.length).toBeGreaterThan(1)
+
+    // A resume-position checkpoint rewrites the library (new source objects).
+    const { library } = await import('../../store/state')
+    library.set({
+      ...library(),
+      sources: library().sources.map((source) => ({ ...source, lastPositionSecs: 42 })),
+    })
+    await flush()
+
+    const after = deepQueryAll('.source-switcher__row')
+    expect(after).toHaveLength(before.length)
+    before.forEach((row, index) => expect(after[index]).toBe(row))
+    expect(deepQuery('.source-switcher')).toBeTruthy()
+  })
+
+  it('keeps the active mixtape playlist identity across progress checkpoints', async () => {
+    await mountApp()
+    await loadPlaylist()
+    const { activePlaylist, library, playingMixtapeId } = await import('../../store/state')
+    const actions = await import('../../store/actions')
+
+    actions.createMixtape('Road trip', apiPlaylist.tracks[0])
+    const mixtapeId = library().mixtapes[0].id
+    actions.playMixtape(mixtapeId)
+    await flush()
+    expect(playingMixtapeId()).toBe(mixtapeId)
+    const before = activePlaylist()
+
+    library.set({
+      ...library(),
+      mixtapes: library().mixtapes.map((mixtape) => ({ ...mixtape, lastPositionSecs: 42 })),
+    })
+    await flush()
+    expect(activePlaylist()).toBe(before)
+
+    // A real edit (track list change) does produce a new playlist.
+    actions.toggleMixtapeTrack(mixtapeId, apiPlaylist.tracks[1])
+    await flush()
+    expect(activePlaylist()).not.toBe(before)
+  })
+
+  it('re-issues playVideo when YouTube leaves the video cued after onReady', async () => {
+    dropPlayRequests = true
+    await mountApp()
+    await loadPlaylist()
+
+    expect(ytCalls.filter((call) => call === 'playVideo')).toHaveLength(1)
+    expect(lastFakePlayer?.getPlayerState()).toBe(YT_STATE.UNSTARTED)
+
+    // YouTube reports the video as merely cued: play again immediately.
+    lastFakePlayer?.emitState(YT_STATE.CUED)
+    expect(ytCalls.filter((call) => call === 'playVideo')).toHaveLength(2)
+
+    // Still not playing after the grace period: the fallback timer retries.
+    await new Promise((resolve) => setTimeout(resolve, 1700))
+    expect(ytCalls.filter((call) => call === 'playVideo')).toHaveLength(3)
+
+    // Once it actually plays, renders no longer nudge it.
+    dropPlayRequests = false
+    lastFakePlayer?.emitState(YT_STATE.PLAYING)
+    const { volume } = await import('../../store/player')
+    volume.set(40)
+    await flush()
+    expect(ytCalls.filter((call) => call === 'playVideo')).toHaveLength(3)
+  }, 10000)
 })

@@ -58,7 +58,7 @@ const remoteLibrary = {
       thumbnail: '',
       savedAt: new Date().toISOString(),
       hiddenTrackIds: [],
-      tracks: [{ id: 'r1', title: 'Remote Track', artist: 'Remote Channel', duration: 200 }],
+      tracks: [{ id: 'remote00001', title: 'Remote Track', artist: 'Remote Channel', duration: 200 }],
     },
   ],
   mixtapes: [],
@@ -113,24 +113,42 @@ describe('store actions (desktop build)', () => {
     expect(stagedDownload).toHaveBeenCalledOnce()
   })
 
+  function youtubeLinkHandler(): (event: { payload: string }) => void {
+    const registration = vi
+      .mocked(listen)
+      .mock.calls.find(([eventName]) => eventName === 'tapedeck://youtube-link')
+    expect(registration).toBeTruthy()
+    return registration?.[1] as (event: { payload: string }) => void
+  }
+
   it('plays a related-video click inline via the Tauri event', async () => {
     actions.openSavedSource('https://www.youtube.com/@RemoteChannel')
     expect(hasPlayer()).toBe(true)
 
-    const registration = vi
-      .mocked(listen)
-      .mock.calls.find(([eventName]) => eventName === 'tapedeck://play-external-video')
-    expect(registration).toBeTruthy()
-    const handler = registration?.[1] as (event: { payload: string }) => void
-    handler({ payload: 'related-123' })
+    youtubeLinkHandler()({ payload: 'https://www.youtube.com/watch?v=related-123&feature=emb_rel_end' })
 
     await vi.waitFor(() => {
       expect(player.track()?.id).toBe('related-123')
     })
-    expect(player.queueTrackId()).toBe('r1')
+    expect(player.queueTrackId()).toBe('remote00001')
 
     player.returnToQueue()
-    expect(player.track()?.id).toBe('r1')
+    expect(player.track()?.id).toBe('remote00001')
+  })
+
+  it('opens "Watch on YouTube" links for the current video in the browser', async () => {
+    actions.openSavedSource('https://www.youtube.com/@RemoteChannel')
+    expect(player.track()?.id).toBe('remote00001')
+    vi.mocked(invoke).mockClear()
+
+    const url = 'https://www.youtube.com/watch?v=r1&feature=emb_logo'
+    youtubeLinkHandler()({ payload: url })
+
+    await vi.waitFor(() => {
+      expect(invoke).toHaveBeenCalledWith('open_external', { url })
+    })
+    expect(player.track()?.id).toBe('remote00001')
+    expect(player.externalVideo()).toBeNull()
   })
 
   it('drives playback from the keyboard shortcuts wired at bootstrap', () => {

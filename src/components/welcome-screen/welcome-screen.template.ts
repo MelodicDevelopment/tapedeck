@@ -7,7 +7,7 @@ import { formatRelativeTime } from '../../lib/time'
 import { icon } from '../../ui/icons'
 import { keyed } from '../../ui/keyed'
 import type { WelcomeScreenComponent } from './welcome-screen.component'
-import { entryKind, KIND_LABELS, LIBRARY_KINDS, type LibraryEntry } from './welcome-screen.types'
+import { entryKind, KIND_LABELS, LIBRARY_KINDS, type LibraryEntry, type LibraryKind } from './welcome-screen.types'
 
 const EXAMPLE_URL = 'https://www.youtube.com/@METAL_MUSIC_AI'
 
@@ -35,7 +35,10 @@ function entryMeta(entry: LibraryEntry): string {
 export function welcomeScreenTemplate(c: WelcomeScreenComponent): TemplateResult {
   const overlay = c.hasPlayer()
   const library = c.library()
-  const hasLibrary = library.sources.length > 0 || library.mixtapes.length > 0
+  const searching = c.searchActive()
+  // Search results take over the grid area, so use the two-column layout
+  // even before anything has been saved.
+  const hasLibrary = library.sources.length > 0 || library.mixtapes.length > 0 || searching
   const authStatus = c.authStatus()
   const checkingAuth = c.desktop && authStatus === null
   const loading = c.view() === 'loading'
@@ -161,8 +164,8 @@ function pasteForm(c: WelcomeScreenComponent): TemplateResult {
           class=${error ? 'input input--error' : 'input'}
           .value=${c.url()}
           @input=${(event: Event) => c.onUrlInput(event)}
-          placeholder="Paste a YouTube video, channel, or playlist URL…"
-          aria-label="YouTube video, channel, or playlist URL"
+          placeholder="Search YouTube, or paste a video, channel, or playlist URL…"
+          aria-label="Search YouTube or paste a video, channel, or playlist URL"
           aria-invalid=${error ? 'true' : 'false'}
           aria-describedby=${error ? 'source-error' : undefined}
           autocapitalize="none"
@@ -171,7 +174,7 @@ function pasteForm(c: WelcomeScreenComponent): TemplateResult {
           ?disabled=${formDisabled}
         />
         <button class="button button--primary" type="submit" ?disabled=${formDisabled}>
-          Load
+          ${c.inputIsLink() ? 'Load' : 'Search'}
         </button>
       </div>
       ${error
@@ -303,6 +306,23 @@ function libraryView(
           : html``}
       </aside>
 
+      ${c.searchActive() ? html`<td-search-results></td-search-results>` : libraryGrid(c, allEntries, continueEntry, kind, kindCounts, filteredEntries, noMatches, query, formDisabled)}
+    </div>
+  `
+}
+
+function libraryGrid(
+  c: WelcomeScreenComponent,
+  allEntries: LibraryEntry[],
+  continueEntry: LibraryEntry | undefined,
+  kind: LibraryKind,
+  kindCounts: Map<string, number>,
+  filteredEntries: LibraryEntry[],
+  noMatches: boolean,
+  query: string,
+  formDisabled: boolean,
+): TemplateResult {
+  return html`
       <section class="library" aria-label="Your library">
         <div class="library__group-header">
           <div class="library__group-header-left">
@@ -367,7 +387,6 @@ function libraryView(
               </ul>
             `}
       </section>
-    </div>
   `
 }
 

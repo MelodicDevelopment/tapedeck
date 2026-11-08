@@ -19,6 +19,10 @@ export function resetStores(): void {
   state.syncDevices.set([])
   state.syncError.set('')
   state.stagedUpdate.set(null)
+  state.searchQuery.set('')
+  state.searchResults.set(null)
+  state.searchStatus.set('idle')
+  state.searchError.set('')
   state.updateDismissed.set(false)
 
   player.currentIndex.set(0)

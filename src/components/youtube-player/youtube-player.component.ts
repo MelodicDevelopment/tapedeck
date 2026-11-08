@@ -66,6 +66,7 @@ export class YouTubePlayerComponent {
   private _appliedVolume = -1
   private _lastSeekRequestId = 0
   private _progressTimer = 0
+  private _autoplayRetryTimer = 0
 
   public onCreate(): void {
     this._lastSeekRequestId = this.seekTo()?.requestId ?? 0
@@ -86,6 +87,25 @@ export class YouTubePlayerComponent {
     this._disposed = true
     window.clearInterval(this._progressTimer)
     this.destroyPlayer()
+  }
+
+  /** YouTube occasionally ignores the playVideo() issued from onReady and
+   *  leaves the video cued/unstarted. Re-issue it while we still intend to
+   *  play; a no-op once the player is already playing or buffering. */
+  private nudgePlayback(): void {
+    if (!this._ready || !this._player || !this.playing()) return
+    const state = this._player.getPlayerState()
+    if (state === window.YT.PlayerState.UNSTARTED || state === window.YT.PlayerState.CUED) {
+      this._player.playVideo()
+    }
+  }
+
+  private scheduleAutoplayRetry(): void {
+    window.clearTimeout(this._autoplayRetryTimer)
+    this._autoplayRetryTimer = window.setTimeout(() => {
+      if (this._disposed) return
+      this.nudgePlayback()
+    }, 1500)
   }
 
   /** (Re)creates the player when the on-screen track's video id changes. */
@@ -128,12 +148,20 @@ export class YouTubePlayerComponent {
             this._appliedVolume = this.volume()
             event.target.setVolume(this._appliedVolume)
             this._appliedPlaying = this.playing()
-            if (this._appliedPlaying) event.target.playVideo()
+            if (this._appliedPlaying) {
+              event.target.playVideo()
+              this.scheduleAutoplayRetry()
+            }
           },
           onStateChange: (event) => {
             if (event.data === window.YT.PlayerState.PLAYING) {
+              window.clearTimeout(this._autoplayRetryTimer)
               this._appliedPlaying = true
               this.playing.set(true)
+            }
+            if (event.data === window.YT.PlayerState.CUED) {
+              // Cued after we asked for play: the play request was dropped.
+              this.nudgePlayback()
             }
             if (event.data === window.YT.PlayerState.PAUSED) {
               this._appliedPlaying = false
@@ -161,6 +189,8 @@ export class YouTubePlayerComponent {
       } else {
         this._player.pauseVideo()
       }
+    } else if (shouldPlay) {
+      this.nudgePlayback()
     }
 
     const currentVolume = this.volume()
@@ -179,6 +209,7 @@ export class YouTubePlayerComponent {
   }
 
   private destroyPlayer(): void {
+    window.clearTimeout(this._autoplayRetryTimer)
     this._player?.destroy()
     this._player = null
     this._playerVideoId = null

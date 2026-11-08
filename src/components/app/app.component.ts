@@ -1,5 +1,6 @@
 import { MelodicComponent } from '@melodicdev/core'
 import { dismissUpdate, restartToUpdate } from '../../store/actions'
+import { pickerTrack } from '../../store/player'
 import {
   confirmDeleteMixtape,
   desktop,
@@ -27,6 +28,7 @@ export class AppComponent {
   public stagedUpdate = stagedUpdate
   public updateDismissed = updateDismissed
   public confirmDeleteMixtape = confirmDeleteMixtape
+  public pickerTrack = pickerTrack
 
   public readonly showTitleBar: boolean = desktop && navigator.userAgent.includes('Windows')
 

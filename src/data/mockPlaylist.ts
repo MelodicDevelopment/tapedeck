@@ -4,6 +4,8 @@ export type Track = {
   artist: string
   duration: number
   unavailable?: boolean
+  /** Uploader's channel id (absent on tracks saved before it was recorded). */
+  channelId?: string
 }
 
 export type Playlist = {

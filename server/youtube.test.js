@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import {
   parseIsoDuration,
+  parseSearchResults,
   parseYouTubeSource,
   resolveYouTubeUrl,
   YouTubeResolverError,
@@ -47,7 +48,7 @@ describe('YouTube response normalization', () => {
       }
       if (url.pathname.endsWith('/playlistItems')) {
         return Response.json({ items: [
-          { snippet: { title: 'Public track', videoOwnerChannelTitle: 'Test channel' }, contentDetails: { videoId: 'video-1' } },
+          { snippet: { title: 'Public track', videoOwnerChannelTitle: 'Test channel', videoOwnerChannelId: 'UC123' }, contentDetails: { videoId: 'video-1' } },
           { snippet: { title: 'Private track' }, contentDetails: { videoId: 'video-2' } },
         ] })
       }
@@ -64,7 +65,7 @@ describe('YouTube response normalization', () => {
     const result = await resolveYouTubeUrl('https://youtube.com/@test', { apiKey: 'test-key', fetchImpl })
     expect(result.name).toBe('Test channel')
     expect(result.tracks).toEqual([
-      { id: 'video-1', title: 'Public track', artist: 'Test channel', duration: 192, unavailable: false },
+      { id: 'video-1', title: 'Public track', artist: 'Test channel', duration: 192, unavailable: false, channelId: 'UC123' },
       { id: 'video-2', title: 'Private track', artist: 'Unavailable on YouTube', duration: 0, unavailable: true },
     ])
     expect(fetchImpl).toHaveBeenCalledTimes(3)
@@ -75,5 +76,28 @@ describe('YouTube response normalization', () => {
       code: 'API_NOT_CONFIGURED',
       status: 503,
     })
+  })
+})
+
+describe('parseSearchResults', () => {
+  it('extracts plain video results from an InnerTube search payload', () => {
+    const payload = { contents: { twoColumnSearchResultsRenderer: { primaryContents: { sectionListRenderer: { contents: [
+      { itemSectionRenderer: { contents: [
+        { shelfRenderer: {} },
+        { videoRenderer: {
+          videoId: 'XflAUat6b78',
+          title: { runs: [{ text: 'A Sky Full of Stars Cover by Oka' }] },
+          ownerText: { runs: [{ text: 'MUSICOKAAY', navigationEndpoint: { browseEndpoint: { browseId: 'UC123' } } }] },
+          lengthText: { simpleText: '1:02:03' },
+        } },
+        { videoRenderer: { videoId: 'live0000001', title: { runs: [{ text: 'Live now' }] } } },
+      ] } },
+      { continuationItemRenderer: {} },
+    ] } } } } }
+    expect(parseSearchResults(payload)).toEqual([
+      { id: 'XflAUat6b78', title: 'A Sky Full of Stars Cover by Oka', channel: 'MUSICOKAAY', channelId: 'UC123', duration: 3723, thumbnail: 'https://i.ytimg.com/vi/XflAUat6b78/mqdefault.jpg' },
+      { id: 'live0000001', title: 'Live now', channel: 'YouTube', duration: 0, thumbnail: 'https://i.ytimg.com/vi/live0000001/mqdefault.jpg' },
+    ])
+    expect(parseSearchResults({})).toEqual([])
   })
 })

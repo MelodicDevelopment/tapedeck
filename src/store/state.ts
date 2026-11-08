@@ -1,6 +1,7 @@
 import { computed, signal } from '@melodicdev/core'
 import { isDesktopApp, type AuthStatus } from '../api/auth'
 import type { SyncedDevice } from '../api/sync'
+import type { SearchResult } from '../api/youtube'
 import type { StagedUpdate } from '../api/updates'
 import type { Playlist, Track } from '../data/mockPlaylist'
 import { mixtapeToPlaylist, partitionSourceTracks, type Library, type Mixtape, emptyLibrary } from '../lib/library'
@@ -31,6 +32,16 @@ export const syncStatus = signal<SyncStatus>('idle')
 export const syncDevices = signal<SyncedDevice[]>([])
 export const syncError = signal('')
 
+/** YouTube search (the "search or paste a link" fields). `searchResults` is
+ *  null when no search is showing; the results screen replaces the library
+ *  grid while it is non-null or a search is in flight. */
+export type SearchStatus = 'idle' | 'loading' | 'error'
+export const searchQuery = signal('')
+export const searchResults = signal<SearchResult[] | null>(null)
+export const searchStatus = signal<SearchStatus>('idle')
+export const searchError = signal('')
+export const searchActive = computed(() => searchResults() !== null || searchStatus() === 'loading')
+
 /** Set once a newer release has been downloaded and is ready to install. */
 export const stagedUpdate = signal<StagedUpdate | null>(null)
 export const updateDismissed = signal(false)
@@ -58,9 +69,24 @@ export const hiddenTracks = computed<Track[]>(() => {
 /** What the player is actually playing: the active mixtape, else the loaded
  *  source minus any videos the user has hidden from it. */
 let filteredCache: { source: Playlist; hiddenIds: readonly string[]; result: Playlist } | null = null
+// The 15s progress checkpoint rewrites the playing mixtape's entry (new object,
+// same tracks array), so cache the derived playlist on what actually renders.
+let mixtapeCache: { id: string; name: string; tracks: readonly Track[]; result: Playlist } | null = null
 export const activePlaylist = computed<Playlist | null>(() => {
   const mixtape = playingMixtape()
-  if (mixtape) return mixtapeToPlaylist(mixtape)
+  if (mixtape) {
+    if (
+      mixtapeCache &&
+      mixtapeCache.id === mixtape.id &&
+      mixtapeCache.name === mixtape.name &&
+      mixtapeCache.tracks === mixtape.tracks
+    ) {
+      return mixtapeCache.result
+    }
+    const result = mixtapeToPlaylist(mixtape)
+    mixtapeCache = { id: mixtape.id, name: mixtape.name, tracks: mixtape.tracks, result }
+    return result
+  }
   const current = playlist()
   const saved = activeSource()
   if (!current || !saved || saved.hiddenTrackIds.length === 0) return current

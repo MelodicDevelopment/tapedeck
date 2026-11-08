@@ -2,7 +2,6 @@ import { MelodicComponent } from '@melodicdev/core'
 import {
   closeOverlay,
   exportCurrentLibrary,
-  handleLoad,
   importLibrary,
   openSavedSource,
   playMixtape,
@@ -10,7 +9,9 @@ import {
   requestDeleteMixtape,
   setUrl,
   signIn,
+  submitSourceOrSearch,
 } from '../../store/actions'
+import { looksLikeUrl } from '../../lib/validation'
 import {
   authAction,
   authStatus,
@@ -18,6 +19,7 @@ import {
   error,
   hasPlayer,
   library,
+  searchActive,
   url,
   view,
 } from '../../store/state'
@@ -46,6 +48,7 @@ export class WelcomeScreenComponent {
   public authAction = authAction
   public library = library
   public hasPlayer = hasPlayer
+  public searchActive = searchActive
 
   public libraryQuery = ''
   public libraryKind: LibraryKind = 'all'
@@ -54,7 +57,13 @@ export class WelcomeScreenComponent {
 
   public submit(event: Event): void {
     event.preventDefault()
-    void handleLoad()
+    submitSourceOrSearch(this.url())
+  }
+
+  /** Whether the field's text will load as a link (vs. search YouTube). */
+  public inputIsLink(): boolean {
+    const value = this.url().trim()
+    return !value || looksLikeUrl(value)
   }
 
   public onUrlInput(event: Event): void {

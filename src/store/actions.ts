@@ -5,7 +5,8 @@ import { exportLibrary, loadLibrary, saveLibrary } from '../api/library'
 import { onMediaControl, updateMediaMetadata, updateMediaPlayback } from '../api/media'
 import { syncLibrary } from '../api/sync'
 import { restartToUpdate as installStagedUpdate, stageUpdate } from '../api/updates'
-import { resolveVideo, resolveYouTubeSource, TapedeckApiError } from '../api/youtube'
+import { openExternal } from '../api/shell'
+import { resolveVideo, resolveYouTubeSource, searchYouTube, TapedeckApiError, type SearchResult } from '../api/youtube'
 import { thumbnailUrl, type Playlist, type Track } from '../data/mockPlaylist'
 import {
   addMixtapeTracks,
@@ -25,7 +26,8 @@ import {
   type Library,
   type PlaybackTarget,
 } from '../lib/library'
-import { extractYouTubeVideoId, validateYouTubeSource, videoWatchUrl } from '../lib/validation'
+import { extractYouTubeVideoId, looksLikeUrl, validateYouTubeSource, videoWatchUrl } from '../lib/validation'
+import { classifyYouTubeLink } from '../lib/youtubeLinks'
 import * as player from './player'
 import {
   activePlaylist,
@@ -39,6 +41,10 @@ import {
   libraryLoaded,
   playingMixtapeId,
   playlist,
+  searchError,
+  searchQuery,
+  searchResults,
+  searchStatus,
   syncDevices,
   syncError,
   stagedUpdate,
@@ -167,6 +173,101 @@ export async function signOut(): Promise<void> {
   } finally {
     authAction.set(null)
   }
+}
+
+/** The welcome field accepts either a link (loaded as a source) or free
+ *  text (searched on YouTube). */
+export function submitSourceOrSearch(value: string): void {
+  const trimmed = value.trim()
+  if (!trimmed || looksLikeUrl(trimmed)) {
+    void handleLoad(trimmed || undefined)
+    return
+  }
+  void searchVideos(trimmed)
+}
+
+let searchController: AbortController | null = null
+
+/** Runs a YouTube search and shows the results screen (over the player when
+ *  one is active). */
+export async function searchVideos(query: string): Promise<void> {
+  const trimmed = query.trim()
+  if (!trimmed) return
+  if (desktop && !authStatus()?.authenticated) {
+    error.set('Sign in with Google before searching YouTube.')
+    return
+  }
+  searchController?.abort()
+  const controller = new AbortController()
+  searchController = controller
+  error.set('')
+  searchQuery.set(trimmed)
+  searchStatus.set('loading')
+  searchError.set('')
+  view.set('welcome')
+  try {
+    const results = await searchYouTube(trimmed, controller.signal)
+    if (controller.signal.aborted) return
+    searchResults.set(results)
+    searchStatus.set('idle')
+  } catch (searchFailure) {
+    if (controller.signal.aborted) return
+    searchStatus.set('error')
+    searchError.set(
+      searchFailure instanceof TapedeckApiError ? searchFailure.message : 'Tapedeck could not search YouTube.',
+    )
+  } finally {
+    if (searchController === controller) searchController = null
+  }
+}
+
+export function clearSearch(): void {
+  searchController?.abort()
+  searchController = null
+  searchQuery.set('')
+  searchResults.set(null)
+  searchStatus.set('idle')
+  searchError.set('')
+}
+
+export function searchResultToTrack(result: SearchResult): Track {
+  return {
+    id: result.id,
+    title: result.title,
+    artist: result.channel,
+    duration: result.duration,
+    ...(result.channelId ? { channelId: result.channelId } : {}),
+  }
+}
+
+/**
+ * Plays a search result right away. With a player active it takes over the
+ * stage inline (the queue resumes via "Back to queue"); otherwise it becomes
+ * a one-video playlist that is NOT saved to the library — "Turn into a
+ * mixtape" or the track's add button save it if wanted.
+ */
+export function previewSearchResult(result: SearchResult): void {
+  const track = searchResultToTrack(result)
+  if (hasPlayer()) {
+    player.saveQueueStateOnce()
+    player.showExternalVideo(track)
+    view.set('loaded')
+    return
+  }
+  requestController?.abort()
+  error.set('')
+  const sourceUrl = videoWatchUrl(result.id)
+  playlist.set({
+    name: result.title,
+    kind: 'YouTube video',
+    description: '',
+    thumbnail: result.thumbnail,
+    sourceUrl,
+    tracks: [track],
+  })
+  playingMixtapeId.set(null)
+  view.set('loaded')
+  activate(sourceUrl)
 }
 
 export async function handleLoad(requestedUrl?: string): Promise<void> {
@@ -393,9 +494,22 @@ export function createMixtape(name: string, track: Track): void {
  * carries straight on as the new mixtape without restarting the track.
  */
 export function convertSourceToMixtape(sourceUrl: string): string | null {
-  const wasPlaying = !playingMixtapeId() && playlist()?.sourceUrl === sourceUrl
+  const current = playlist()
+  const wasPlaying = !playingMixtapeId() && current?.sourceUrl === sourceUrl
   if (wasPlaying) flushProgressForCurrent()
-  const converted = libConvertSourceToMixtape(library(), sourceUrl)
+  let converted = libConvertSourceToMixtape(library(), sourceUrl)
+  if (!converted && wasPlaying && current) {
+    // A previewed video plays without being saved as a source; build the
+    // mixtape straight from what's on screen.
+    const [first, ...rest] = current.tracks.filter((track) => !track.unavailable)
+    if (!first) return null
+    const known = new Set(library().mixtapes.map((mixtape) => mixtape.id))
+    let next = libCreateMixtape(library(), current.name, first)
+    const mixtape = next.mixtapes.find((entry) => !known.has(entry.id))
+    if (!mixtape) return null
+    next = addMixtapeTracks(next, mixtape.id, rest)
+    converted = { library: next, mixtape: next.mixtapes.find((entry) => entry.id === mixtape.id) ?? mixtape }
+  }
   if (!converted) return null
   commitLibrary(converted.library)
   if (wasPlaying) {
@@ -517,14 +631,22 @@ export async function bootstrap(): Promise<void> {
       .then((update) => stagedUpdate.set(update))
       .catch(() => {})
 
-    // A related-video click inside the embedded YouTube player itself (its
-    // "More videos" overlay, end screens) reaches here via a Tauri event —
-    // see the `on_new_window` hook in src-tauri/src/lib.rs.
-    void listen<string>('tapedeck://play-external-video', (event) => {
+    // Any YouTube video link that tried to open a new window — a related
+    // video clicked inside the embedded player (its "More videos" overlay,
+    // end screens), the player's own "Watch on YouTube" logo, or Tapedeck's
+    // title link — reaches here via a Tauri event; see the `on_new_window`
+    // hook in src-tauri/src/lib.rs. Related videos play inline; links to the
+    // video already on screen open the real browser.
+    void listen<string>('tapedeck://youtube-link', (event) => {
+      const action = classifyYouTubeLink(event.payload, player.track()?.id)
+      if (action.kind === 'open-external') {
+        openExternal(action.url).catch(() => {})
+        return
+      }
       if (!hasPlayer()) return
       player.saveQueueStateOnce()
       player.externalVideoLoading.set(true)
-      resolveVideo(event.payload)
+      resolveVideo(action.videoId)
         .then((resolved) => player.showExternalVideo(resolved))
         .catch(() => {})
         .finally(() => player.externalVideoLoading.set(false))
@@ -687,6 +809,7 @@ function wireKeyboardShortcuts(): void {
 /** Test-only: reset module-level flow state between test cases. */
 export function resetActionState(): void {
   requestController = null
+  searchController = null
   activeKey = undefined
   suppressSyncTrigger = false
   syncing = false

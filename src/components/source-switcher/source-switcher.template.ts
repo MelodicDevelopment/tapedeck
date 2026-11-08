@@ -1,10 +1,13 @@
-// NOTE: plain .map() instead of repeat() for these lists — repeat() crashes
-// when nested inside conditionally-rendered sub-templates (candidate fix for
-// the melodic repo); Envy's components use .map() the same way.
+// NOTE: plain .map() + keyed() instead of repeat() for these lists — repeat()
+// crashes when nested inside conditionally-rendered sub-templates (candidate
+// fix for the melodic repo). Rows are keyed so the 15s progress checkpoint
+// (which rewrites the library) doesn't tear the list down and reload every
+// thumbnail while the dropdown is open.
 import { html, unsafeHTML, type TemplateResult } from '@melodicdev/core'
 import { thumbnailUrl, type Playlist } from '../../data/mockPlaylist'
 import { changeSource, openSavedSource, playMixtape } from '../../store/actions'
 import { icon } from '../../ui/icons'
+import { keyed } from '../../ui/keyed'
 import type { SourceSwitcherComponent } from './source-switcher.component'
 
 export function sourceSwitcherTemplate(c: SourceSwitcherComponent): TemplateResult {
@@ -50,7 +53,9 @@ function switcherList(c: SourceSwitcherComponent, playlist: Playlist): TemplateR
               (mixtape) => {
                 const cover = mixtape.tracks.find((entry) => !entry.unavailable)
                 const active = activeMixtapeId === mixtape.id
-                return html`
+                return keyed(
+                  mixtape.id,
+                  html`
                   <button
                     type="button"
                     class="source-switcher__row"
@@ -73,7 +78,8 @@ function switcherList(c: SourceSwitcherComponent, playlist: Playlist): TemplateR
                       ? unsafeHTML(icon('check', { class: 'source-switcher__check' }))
                       : html``}
                   </button>
-                `
+                `,
+                )
               },
             )}
           `
@@ -85,7 +91,9 @@ function switcherList(c: SourceSwitcherComponent, playlist: Playlist): TemplateR
             ${sources.map(
               (source) => {
                 const active = !activeMixtapeId && playlist.sourceUrl === source.url
-                return html`
+                return keyed(
+                  source.url,
+                  html`
                   <button
                     type="button"
                     class="source-switcher__row"
@@ -113,7 +121,8 @@ function switcherList(c: SourceSwitcherComponent, playlist: Playlist): TemplateR
                       ? unsafeHTML(icon('check', { class: 'source-switcher__check' }))
                       : html``}
                   </button>
-                `
+                `,
+                )
               },
             )}
           `

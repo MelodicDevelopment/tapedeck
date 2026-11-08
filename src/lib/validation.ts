@@ -56,3 +56,16 @@ export function extractYouTubeVideoId(value: string): string | null {
 export function videoWatchUrl(videoId: string): string {
   return `https://www.youtube.com/watch?v=${videoId}`
 }
+
+/**
+ * Whether free text in a "search or paste a link" field should be treated as
+ * a URL (loaded, and validated as one) rather than a search query. Anything
+ * with a scheme, a YouTube host, or a bare domain-shaped first token counts.
+ */
+export function looksLikeUrl(value: string): boolean {
+  const trimmed = value.trim()
+  if (!trimmed || /\s/.test(trimmed)) return false
+  if (/^https?:\/\//i.test(trimmed)) return true
+  if (/(^|\.)(youtube\.com|youtu\.be)(\/|$)/i.test(trimmed)) return true
+  return /^[a-z0-9-]+(\.[a-z0-9-]+)+(\/|$)/i.test(trimmed)
+}

@@ -88,3 +88,52 @@ export async function resolveVideo(videoId: string): Promise<Track> {
     throw new TapedeckApiError(typeof error === 'string' ? error : 'Tapedeck could not load that video.')
   }
 }
+
+/** A video found by YouTube search — becomes a Track once added (and
+ *  resolved for embeddability) via `addVideoToMixtape`. */
+export type SearchResult = {
+  id: string
+  title: string
+  channel: string
+  channelId?: string
+  /** Seconds; 0 when unknown (live streams). */
+  duration: number
+  thumbnail: string
+}
+
+function toApiError(error: unknown, fallback: string): TapedeckApiError {
+  if (error instanceof TapedeckApiError) return error
+  if (typeof error === 'object' && error !== null) {
+    const commandError = error as { code?: string; message?: string }
+    return new TapedeckApiError(commandError.message ?? fallback, commandError.code)
+  }
+  return new TapedeckApiError(typeof error === 'string' ? error : fallback)
+}
+
+/** First page of YouTube video results for `query`. */
+export async function searchYouTube(query: string, signal?: AbortSignal): Promise<SearchResult[]> {
+  const trimmed = query.trim()
+  if (!trimmed) return []
+  const fallback = 'Tapedeck could not search YouTube.'
+  if (isDesktopApp()) {
+    try {
+      const results = await invoke<SearchResult[]>('search_youtube', { query: trimmed })
+      if (signal?.aborted) throw new DOMException('The request was aborted.', 'AbortError')
+      return Array.isArray(results) ? results : []
+    } catch (error) {
+      if (error instanceof DOMException && error.name === 'AbortError') throw error
+      throw toApiError(error, fallback)
+    }
+  }
+
+  let response: Response
+  try {
+    response = await fetch(`${configuredApiBase}/api/youtube/search?q=${encodeURIComponent(trimmed)}`, { signal })
+  } catch (error) {
+    if (error instanceof DOMException && error.name === 'AbortError') throw error
+    throw new TapedeckApiError('Tapedeck could not reach its server. Check that the API server is running.', 'SERVER_UNREACHABLE')
+  }
+  const body = (await response.json().catch(() => ({}))) as { results?: SearchResult[] } & ErrorBody
+  if (!response.ok) throw new TapedeckApiError(body.error?.message ?? fallback, body.error?.code)
+  return Array.isArray(body.results) ? body.results : []
+}

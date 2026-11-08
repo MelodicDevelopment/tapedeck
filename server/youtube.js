@@ -1,5 +1,11 @@
 const API_ROOT = 'https://www.googleapis.com/youtube/v3'
 const DEFAULT_MAX_TRACKS = 150
+// InnerTube is the JSON API youtube.com's own web client uses: no API key,
+// no quota (the Data API's search.list costs 100 units per call).
+const INNERTUBE_SEARCH = 'https://www.youtube.com/youtubei/v1/search?prettyPrint=false'
+const INNERTUBE_CLIENT_VERSION = '2.20240701.00.00'
+const INNERTUBE_VIDEO_FILTER = 'EgIQAQ%3D%3D' // SearchFilter.type = video
+const WEB_USER_AGENT = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36'
 
 export class YouTubeResolverError extends Error {
   constructor(message, status = 500, code = 'YOUTUBE_ERROR') {
@@ -179,6 +185,7 @@ async function resolveSingleVideo(source, apiKey, fetchImpl) {
       artist: unavailable ? 'Unavailable on YouTube' : (video.snippet?.channelTitle || 'YouTube'),
       duration: parseIsoDuration(video.contentDetails?.duration),
       unavailable,
+      ...(!unavailable && video.snippet?.channelId ? { channelId: video.snippet.channelId } : {}),
     }],
   }
 }
@@ -216,6 +223,7 @@ export async function resolveYouTubeUrl(value, options = {}) {
       artist: unavailable ? 'Unavailable on YouTube' : (item.snippet?.videoOwnerChannelTitle ?? item.snippet?.channelTitle ?? metadata.name),
       duration: parseIsoDuration(detail?.contentDetails?.duration),
       unavailable,
+      ...(!unavailable && item.snippet?.videoOwnerChannelId ? { channelId: item.snippet.videoOwnerChannelId } : {}),
     }
   })
 
@@ -228,4 +236,72 @@ export async function resolveYouTubeUrl(value, options = {}) {
     sourceUrl: source.canonicalUrl,
     tracks,
   }
+}
+
+/** "3:26" → 206, "1:02:03" → 3723; anything else → 0. */
+function parseClockDuration(value) {
+  const parts = String(value ?? '').trim().split(':')
+  let total = 0
+  for (const part of parts) {
+    if (!/^\d+$/.test(part)) return 0
+    total = total * 60 + Number(part)
+  }
+  return total
+}
+
+/** Pulls videoRenderer items out of an InnerTube search response. */
+export function parseSearchResults(payload) {
+  const sections = payload?.contents?.twoColumnSearchResultsRenderer?.primaryContents?.sectionListRenderer?.contents
+  if (!Array.isArray(sections)) return []
+  const results = []
+  for (const section of sections) {
+    for (const item of section?.itemSectionRenderer?.contents ?? []) {
+      const video = item?.videoRenderer
+      const id = video?.videoId
+      const title = video?.title?.runs?.[0]?.text
+      if (!/^[A-Za-z0-9_-]{11}$/.test(id ?? '') || !title) continue
+      const owner = video.ownerText?.runs?.[0]
+      const channelId = owner?.navigationEndpoint?.browseEndpoint?.browseId
+      results.push({
+        id,
+        title,
+        channel: owner?.text || 'YouTube',
+        ...(channelId ? { channelId } : {}),
+        duration: parseClockDuration(video.lengthText?.simpleText),
+        thumbnail: `https://i.ytimg.com/vi/${id}/mqdefault.jpg`,
+      })
+    }
+  }
+  return results
+}
+
+/** First page of YouTube video results for `query`, via InnerTube. */
+export async function searchYouTube(query, options = {}) {
+  const trimmed = String(query ?? '').trim()
+  if (!trimmed) return []
+  if (trimmed.length > 200) throw new YouTubeResolverError('That search is too long.', 400, 'INVALID_QUERY')
+  const fetchImpl = options.fetchImpl ?? fetch
+  let response
+  try {
+    response = await fetchImpl(INNERTUBE_SEARCH, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'user-agent': WEB_USER_AGENT,
+        'x-youtube-client-name': '1',
+        'x-youtube-client-version': INNERTUBE_CLIENT_VERSION,
+      },
+      body: JSON.stringify({
+        context: { client: { clientName: 'WEB', clientVersion: INNERTUBE_CLIENT_VERSION, hl: 'en', gl: 'US' } },
+        query: trimmed,
+        params: INNERTUBE_VIDEO_FILTER,
+      }),
+    })
+  } catch {
+    throw new YouTubeResolverError('YouTube could not be reached. Check your connection and try again.', 502, 'YOUTUBE_UNREACHABLE')
+  }
+  if (!response.ok) throw new YouTubeResolverError(`YouTube search failed (HTTP ${response.status}).`, 502, 'YOUTUBE_SEARCH_FAILED')
+  const payload = await response.json().catch(() => null)
+  if (!payload) throw new YouTubeResolverError('YouTube returned an unreadable search response.', 502, 'YOUTUBE_RESPONSE_ERROR')
+  return parseSearchResults(payload)
 }

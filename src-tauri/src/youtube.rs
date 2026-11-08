@@ -10,6 +10,14 @@ use url::Url;
 use crate::auth::{google_env, send_with_retry, transport_detail, AppState, CommandError};
 
 const API_ROOT: &str = "https://www.googleapis.com/youtube/v3";
+/// InnerTube is the JSON API youtube.com's own web client uses. It needs no
+/// API key and has no quota, which the Data API's `search.list` (100 units
+/// per call against a 10k/day budget shared by every install) cannot offer.
+const INNERTUBE_SEARCH: &str = "https://www.youtube.com/youtubei/v1/search?prettyPrint=false";
+const INNERTUBE_CLIENT_VERSION: &str = "2.20240701.00.00";
+/// `SearchFilter.type = video` — keeps channels, playlists, and shelves out.
+const INNERTUBE_VIDEO_FILTER: &str = "EgIQAQ%3D%3D";
+const WEB_USER_AGENT: &str = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36";
 
 fn youtube_api_key() -> Option<String> {
     google_env(
@@ -37,6 +45,28 @@ pub struct Track {
     artist: String,
     duration: u64,
     unavailable: bool,
+    /// The uploader's channel id, so the UI can link to the creator's page.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    channel_id: Option<String>,
+}
+
+fn non_empty(value: String) -> Option<String> {
+    (!value.is_empty()).then_some(value)
+}
+
+/// A video found by `search_youtube`. Not a `Track` yet: embeddability and
+/// privacy aren't known until it is resolved through the Data API on add.
+#[derive(Debug, Serialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct SearchResult {
+    id: String,
+    title: String,
+    channel: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    channel_id: Option<String>,
+    /// Seconds; 0 when YouTube didn't report a length (live streams).
+    duration: u64,
+    thumbnail: String,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -542,6 +572,11 @@ pub async fn resolve_youtube_source(
                 });
             let owner = text_at(item, "/snippet/videoOwnerChannelTitle");
             let channel = text_at(item, "/snippet/channelTitle");
+            let channel_id = if unavailable {
+                None
+            } else {
+                non_empty(text_at(item, "/snippet/videoOwnerChannelId"))
+            };
             let artist = if unavailable {
                 "Unavailable on YouTube".to_owned()
             } else if !owner.is_empty() {
@@ -566,6 +601,7 @@ pub async fn resolve_youtube_source(
                     .map(|value| parse_iso_duration(&text_at(value, "/contentDetails/duration")))
                     .unwrap_or(0),
                 unavailable,
+                channel_id,
             }
         })
         .collect();
@@ -678,13 +714,181 @@ async fn fetch_video(
         },
         duration: parse_iso_duration(&text_at(video, "/contentDetails/duration")),
         unavailable,
+        channel_id: if unavailable {
+            None
+        } else {
+            non_empty(text_at(video, "/snippet/channelId"))
+        },
     };
     Ok((track, video.clone()))
+}
+
+/// Searches YouTube for videos matching `query` via InnerTube (see the
+/// constant's note). Returns the first page of video results.
+#[tauri::command]
+pub async fn search_youtube(
+    query: String,
+    state: State<'_, AppState>,
+) -> Result<Vec<SearchResult>, CommandError> {
+    let query = query.trim();
+    if query.is_empty() {
+        return Ok(Vec::new());
+    }
+    let body = serde_json::json!({
+        "context": {
+            "client": {
+                "clientName": "WEB",
+                "clientVersion": INNERTUBE_CLIENT_VERSION,
+                "hl": "en",
+                "gl": "US",
+            }
+        },
+        "query": query,
+        "params": INNERTUBE_VIDEO_FILTER,
+    });
+    let response = send_with_retry(
+        state
+            .client
+            .post(INNERTUBE_SEARCH)
+            .header("User-Agent", WEB_USER_AGENT)
+            .header("X-YouTube-Client-Name", "1")
+            .header("X-YouTube-Client-Version", INNERTUBE_CLIENT_VERSION)
+            .json(&body),
+    )
+    .await
+    .map_err(|error| {
+        CommandError::new(
+            "YOUTUBE_UNREACHABLE",
+            format!(
+                "YouTube could not be reached ({}). Check your connection and try again.",
+                transport_detail(&error)
+            ),
+        )
+    })?;
+    if !response.status().is_success() {
+        return Err(CommandError::new(
+            "YOUTUBE_SEARCH_FAILED",
+            format!("YouTube search failed (HTTP {}).", response.status().as_u16()),
+        ));
+    }
+    let payload = response.json::<Value>().await.map_err(|_| {
+        CommandError::new(
+            "YOUTUBE_RESPONSE_ERROR",
+            "YouTube returned an unreadable search response.",
+        )
+    })?;
+    Ok(parse_search_results(&payload))
+}
+
+/// Pulls `videoRenderer` items out of an InnerTube search response. The
+/// layout is deeply nested (section list → item sections → items); anything
+/// that isn't a plain video (shelves, ads, channels) is skipped.
+fn parse_search_results(payload: &Value) -> Vec<SearchResult> {
+    let sections = payload
+        .pointer("/contents/twoColumnSearchResultsRenderer/primaryContents/sectionListRenderer/contents")
+        .and_then(Value::as_array);
+    let Some(sections) = sections else {
+        return Vec::new();
+    };
+    sections
+        .iter()
+        .filter_map(|section| section.pointer("/itemSectionRenderer/contents")?.as_array())
+        .flatten()
+        .filter_map(|item| item.get("videoRenderer"))
+        .filter_map(parse_video_renderer)
+        .collect()
+}
+
+fn parse_video_renderer(video: &Value) -> Option<SearchResult> {
+    let id = text_at(video, "/videoId");
+    if !is_video_id(&id) {
+        return None;
+    }
+    let title = text_at(video, "/title/runs/0/text");
+    if title.is_empty() {
+        return None;
+    }
+    let channel = text_at(video, "/ownerText/runs/0/text");
+    let channel_id = non_empty(text_at(
+        video,
+        "/ownerText/runs/0/navigationEndpoint/browseEndpoint/browseId",
+    ));
+    let duration = parse_clock_duration(&text_at(video, "/lengthText/simpleText"));
+    // Thumbnails are listed smallest first; the standard mqdefault frame is
+    // what the queue already uses, so prefer the stable i.ytimg.com URL.
+    let thumbnail = format!("https://i.ytimg.com/vi/{id}/mqdefault.jpg");
+    Some(SearchResult {
+        id,
+        title,
+        channel: if channel.is_empty() {
+            "YouTube".to_owned()
+        } else {
+            channel
+        },
+        channel_id,
+        duration,
+        thumbnail,
+    })
+}
+
+/// "3:26" → 206, "1:02:03" → 3723. Empty or unparseable → 0.
+fn parse_clock_duration(value: &str) -> u64 {
+    let mut total = 0u64;
+    for part in value.trim().split(':') {
+        let Ok(number) = part.parse::<u64>() else {
+            return 0;
+        };
+        total = total * 60 + number;
+    }
+    total
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn parses_innertube_search_results() {
+        let payload = serde_json::json!({
+            "contents": { "twoColumnSearchResultsRenderer": { "primaryContents": { "sectionListRenderer": { "contents": [
+                { "itemSectionRenderer": { "contents": [
+                    { "shelfRenderer": {} },
+                    { "videoRenderer": {
+                        "videoId": "XflAUat6b78",
+                        "title": { "runs": [{ "text": "A Sky Full of Stars Cover by Oka" }] },
+                        "ownerText": { "runs": [{ "text": "MUSICOKAAY", "navigationEndpoint": { "browseEndpoint": { "browseId": "UCRFPDKnsK0DBN2aPG2wX_3w" } } }] },
+                        "lengthText": { "simpleText": "3:00" }
+                    } },
+                    { "videoRenderer": { "videoId": "live0000001", "title": { "runs": [{ "text": "Live now" }] } } }
+                ] } },
+                { "continuationItemRenderer": {} }
+            ] } } } }
+        });
+        let results = parse_search_results(&payload);
+        assert_eq!(results.len(), 2);
+        assert_eq!(
+            results[0],
+            SearchResult {
+                id: "XflAUat6b78".to_owned(),
+                title: "A Sky Full of Stars Cover by Oka".to_owned(),
+                channel: "MUSICOKAAY".to_owned(),
+                channel_id: Some("UCRFPDKnsK0DBN2aPG2wX_3w".to_owned()),
+                duration: 180,
+                thumbnail: "https://i.ytimg.com/vi/XflAUat6b78/mqdefault.jpg".to_owned(),
+            }
+        );
+        assert_eq!(results[1].channel, "YouTube");
+        assert_eq!(results[1].duration, 0);
+        assert!(parse_search_results(&serde_json::json!({})).is_empty());
+    }
+
+    #[test]
+    fn parses_clock_durations() {
+        assert_eq!(parse_clock_duration("3:26"), 206);
+        assert_eq!(parse_clock_duration("1:02:03"), 3723);
+        assert_eq!(parse_clock_duration(""), 0);
+        assert_eq!(parse_clock_duration("LIVE"), 0);
+    }
 
     #[test]
     fn parses_supported_youtube_sources() {

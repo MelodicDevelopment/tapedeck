@@ -1,11 +1,13 @@
 import { MelodicComponent } from '@melodicdev/core'
 import type { Playlist, Track } from '../../data/mockPlaylist'
+import { extractYouTubeVideoId } from '../../lib/validation'
 import {
   addVideoToMixtape,
   changeSource,
   convertSourceToMixtape,
   hideSourceTrack,
   reorderMixtapeTrack,
+  searchVideos,
   toggleMixtapeTrack,
   unhideSourceTrack,
 } from '../../store/actions'
@@ -24,7 +26,7 @@ import {
   track,
   unavailable,
 } from '../../store/player'
-import { activePlaylist, authAction, authStatus, hiddenTracks, playingMixtapeId } from '../../store/state'
+import { activePlaylist, activeSource, authAction, authStatus, hiddenTracks, playingMixtapeId } from '../../store/state'
 import { playerScreenTemplate } from './player-screen.template'
 import { playerScreenStyles } from './player-screen.styles'
 
@@ -42,6 +44,7 @@ export class PlayerScreenComponent {
   public elementRef!: HTMLElement
 
   public activePlaylist = activePlaylist
+  public activeSource = activeSource
   public playingMixtapeId = playingMixtapeId
   public authStatus = authStatus
   public authAction = authAction
@@ -60,7 +63,8 @@ export class PlayerScreenComponent {
   /** Whether the "Hidden" section at the bottom of the queue is expanded. */
   public showHidden = false
 
-  /** "Add a video" form state while a mixtape is playing. */
+  /** "Add a video" form state while a mixtape is playing. The one field
+   *  takes either a video link (added directly) or free text (searched). */
   public addUrl = ''
   public addError = ''
   public adding = false
@@ -157,14 +161,26 @@ export class PlayerScreenComponent {
     this.addError = ''
   }
 
+  /** Whether the current field text is a video link (add) or a query (search). */
+  public addInputIsLink(): boolean {
+    return extractYouTubeVideoId(this.addUrl) !== null
+  }
+
   public submitAddVideo(event: Event): void {
     event.preventDefault()
     const mixtapeId = this.playingMixtapeId()
-    const videoUrl = this.addUrl.trim()
-    if (!mixtapeId || !videoUrl || this.adding) return
+    const value = this.addUrl.trim()
+    if (!mixtapeId || !value || this.adding) return
+    if (!this.addInputIsLink()) {
+      // Free text: open the full search results screen over the player.
+      this.addUrl = ''
+      this.addError = ''
+      void searchVideos(value)
+      return
+    }
     this.adding = true
     this.addError = ''
-    addVideoToMixtape(mixtapeId, videoUrl)
+    addVideoToMixtape(mixtapeId, value)
       .then(() => {
         this.addUrl = ''
       })
@@ -174,6 +190,21 @@ export class PlayerScreenComponent {
       .finally(() => {
         this.adding = false
       })
+  }
+
+  /** Opens the mixtape picker for whatever is on the stage (queue track,
+   *  inline preview, or an unsaved previewed video). */
+  public pickCurrentTrack(): void {
+    const current = this.track()
+    if (current && !current.unavailable) this.pickTrack(current)
+  }
+
+  /** The stage's "Add to mixtape" shortcut: for inline previews and for a
+   *  previewed single video that isn't saved anywhere yet. */
+  public showStageAdd(): boolean {
+    if (this.unavailable()) return false
+    if (this.externalVideo()) return true
+    return !this.playingMixtapeId() && !this.activeSource()
   }
 
   public toggleHidden(): void {
@@ -193,3 +224,4 @@ export class PlayerScreenComponent {
     this.dragOverIndex = null
   }
 }
+

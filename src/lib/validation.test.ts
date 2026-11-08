@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { extractYouTubeVideoId, validateYouTubeSource, videoWatchUrl } from './validation'
+import { extractYouTubeVideoId, looksLikeUrl, validateYouTubeSource, videoWatchUrl } from './validation'
 
 describe('validateYouTubeSource', () => {
   it('accepts channel handles and playlist URLs with or without a scheme', () => {
@@ -47,5 +47,21 @@ describe('extractYouTubeVideoId', () => {
 
   it('builds a canonical watch URL', () => {
     expect(videoWatchUrl('dQw4w9WgXcQ')).toBe('https://www.youtube.com/watch?v=dQw4w9WgXcQ')
+  })
+})
+
+describe('looksLikeUrl', () => {
+  it('treats links and domains as URLs', () => {
+    expect(looksLikeUrl('https://www.youtube.com/watch?v=dQw4w9WgXcQ')).toBe(true)
+    expect(looksLikeUrl('youtube.com/@lofihiphopmusic')).toBe(true)
+    expect(looksLikeUrl('youtu.be/dQw4w9WgXcQ')).toBe(true)
+    expect(looksLikeUrl('example.com/playlist')).toBe(true)
+  })
+
+  it('treats free text as a search query', () => {
+    expect(looksLikeUrl('a sky full of stars cover')).toBe(false)
+    expect(looksLikeUrl('coldplay')).toBe(false)
+    expect(looksLikeUrl('')).toBe(false)
+    expect(looksLikeUrl('what is youtube.com')).toBe(false)
   })
 })

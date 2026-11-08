@@ -706,6 +706,37 @@ export const playerScreenStyles = (): TemplateResult => css`
     height: 11px;
   }
 
+  .track-details__external-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 14px;
+  }
+
+  .track-details__add-to-mixtape {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: var(--td-muted);
+    cursor: pointer;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    transition: color 120ms ease;
+  }
+
+  .track-details__add-to-mixtape svg {
+    width: 12px;
+    height: 12px;
+  }
+
+  .track-details__add-to-mixtape:hover {
+    color: var(--td-text);
+  }
+
   .track-details__back-to-queue {
     display: inline-flex;
     align-items: center;

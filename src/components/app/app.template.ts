@@ -27,6 +27,7 @@ export function appTemplate(c: AppComponent): TemplateResult {
       : html``}
     ${hasPlayer ? html`<td-player-screen></td-player-screen>` : html``}
     ${!hasPlayer || c.view() !== 'loaded' ? html`<td-welcome-screen></td-welcome-screen>` : html``}
+    ${c.pickerTrack() ? html`<td-mixtape-picker></td-mixtape-picker>` : html``}
     ${c.confirmDeleteMixtape() ? html`<td-confirm-dialog></td-confirm-dialog>` : html``}
   `
 }

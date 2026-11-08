@@ -3,7 +3,7 @@ import express from 'express'
 import { existsSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { resolveYouTubeUrl, YouTubeResolverError } from './youtube.js'
+import { resolveYouTubeUrl, searchYouTube, YouTubeResolverError } from './youtube.js'
 
 const app = express()
 const port = Number(process.env.PORT) || 8787
@@ -67,6 +67,28 @@ app.post('/api/youtube/resolve', async (request, response) => {
       error: {
         code: known ? error.code : 'INTERNAL_ERROR',
         message: known ? error.message : 'Tapedeck could not load that source.',
+      },
+    })
+  }
+})
+
+app.get('/api/youtube/search', async (request, response) => {
+  try {
+    const query = String(request.query.q ?? '').trim()
+    const cacheKey = `search:${query.toLowerCase()}`
+    const cached = cache.get(cacheKey)
+    if (cached && Date.now() - cached.createdAt < cacheTtl) return response.json(cached.value)
+
+    const value = { results: await searchYouTube(query) }
+    cache.set(cacheKey, { createdAt: Date.now(), value })
+    if (cache.size > 100) cache.delete(cache.keys().next().value)
+    response.json(value)
+  } catch (error) {
+    const known = error instanceof YouTubeResolverError
+    response.status(known ? error.status : 500).json({
+      error: {
+        code: known ? error.code : 'INTERNAL_ERROR',
+        message: known ? error.message : 'Tapedeck could not search YouTube.',
       },
     })
   }

@@ -48,6 +48,17 @@ fn youtube_video_id(url: &tauri::Url) -> Option<String> {
     None
 }
 
+/// Opens a web URL in the user's default browser. Only http(s) is allowed so
+/// the frontend can't be tricked into launching arbitrary local schemes.
+#[tauri::command]
+fn open_external(url: String) -> Result<(), String> {
+    let parsed = tauri::Url::parse(&url).map_err(|error| error.to_string())?;
+    if !matches!(parsed.scheme(), "http" | "https") {
+        return Err("Only web links can be opened externally.".to_owned());
+    }
+    open::that_detached(parsed.as_str()).map_err(|error| error.to_string())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let builder = tauri::Builder::default()
@@ -76,6 +87,7 @@ pub fn run() {
             auth::sign_out_google,
             youtube::resolve_youtube_source,
             youtube::resolve_video,
+            youtube::search_youtube,
             media::media_set_metadata,
             media::media_set_playback,
             library::load_library,
@@ -84,6 +96,7 @@ pub fn run() {
             sync::drive_download_library,
             sync::drive_upload_library,
             sync::drive_touch_device,
+            open_external,
         ])
         .setup(|app| {
             #[cfg(debug_assertions)]
@@ -114,15 +127,17 @@ pub fn run() {
                 .decorations(!cfg!(target_os = "windows"))
                 // The embedded YouTube player (and Tapedeck's own "watch on
                 // YouTube" links) open external pages via `window.open`
-                // (target=_blank). A related-video click inside the player
-                // (its "More videos" overlay, end screens) points at a
-                // youtube.com/youtu.be watch URL — hand that back to the
-                // frontend to play inline instead of leaving the app; any
-                // other destination (channel pages, fully external sites)
-                // opens in the user's real browser.
+                // (target=_blank). Any youtube.com/youtu.be video URL is
+                // handed to the frontend, which knows what's on screen and
+                // decides: a related-video click inside the player (its
+                // "More videos" overlay, end screens) plays inline, while the
+                // player's "Watch on YouTube" logo/title and Tapedeck's own
+                // links open the user's real browser via `open_external`.
+                // Any other destination (channel pages, fully external
+                // sites) opens in the browser directly.
                 .on_new_window(move |url, _features| {
-                    if let Some(video_id) = youtube_video_id(&url) {
-                        let _ = app_handle.emit("tapedeck://play-external-video", video_id);
+                    if youtube_video_id(&url).is_some() {
+                        let _ = app_handle.emit("tapedeck://youtube-link", url.to_string());
                     } else {
                         let _ = open::that_detached(url.as_str());
                     }
