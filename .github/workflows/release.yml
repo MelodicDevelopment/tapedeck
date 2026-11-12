@@ -108,6 +108,27 @@ jobs:
         with:
           tagName: ${{ github.ref_name }}
           releaseName: "Tapedeck ${{ github.ref_name }}"
+          # Stays a draft while the platforms build; the publish job below
+          # flips it live only once every platform has uploaded its assets.
           releaseDraft: true
           prerelease: false
           args: ${{ matrix.args }}
+
+  publish:
+    name: Publish release
+    needs: release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Publish the draft
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          # Title and notes come from the tagged commit's subject and body.
+          subject=$(git log -1 --format=%s)
+          git log -1 --format=%b | sed '/^Bumps to /d' > notes.md
+          gh release edit "$TAG" \
+            --title "Tapedeck $TAG — $subject" \
+            --notes-file notes.md \
+            --draft=false --latest
