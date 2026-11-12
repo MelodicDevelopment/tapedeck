@@ -125,6 +125,11 @@ pub fn run() {
                 // a custom in-page title bar (see TitleBar.tsx) drawn to
                 // match.
                 .decorations(!cfg!(target_os = "windows"))
+                // Tapedeck usually sits in the background while it plays, so
+                // the click that brings it forward is often aimed at a
+                // transport button. macOS swallows that first click by
+                // default (it only focuses the window); let it through.
+                .accept_first_mouse(true)
                 // The embedded YouTube player (and Tapedeck's own "watch on
                 // YouTube" links) open external pages via `window.open`
                 // (target=_blank). Any youtube.com/youtu.be video URL is
