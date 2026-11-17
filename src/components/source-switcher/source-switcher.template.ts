@@ -13,27 +13,66 @@ import type { SourceSwitcherComponent } from './source-switcher.component'
 export function sourceSwitcherTemplate(c: SourceSwitcherComponent): TemplateResult {
   const playlist = c.activePlaylist()
   if (!playlist) return html``
+  const art = html`
+    <img
+      class="source-card__art"
+      src=${playlist.thumbnail || thumbnailUrl(playlist.tracks[0].id)}
+      alt=""
+    />
+  `
+  if (c.editing) {
+    return html`
+      <div class="source-card">
+        <div class="source-card__head source-card__head--editing">
+          ${art}
+          <input
+            class="input source-card__name-input"
+            .value=${c.draftName}
+            @input=${(event: Event) => (c.draftName = (event.target as HTMLInputElement).value)}
+            @keydown=${(event: KeyboardEvent) => c.onRenameKeyDown(event)}
+            @blur=${() => c.commitRename()}
+            maxlength="80"
+            aria-label="Mixtape name"
+            autocapitalize="none"
+            autocorrect="off"
+            spellcheck="false"
+          />
+        </div>
+      </div>
+    `
+  }
   return html`
     <div class="source-card">
-      <button
-        type="button"
-        class="source-card__trigger"
-        @click=${() => (c.open = !c.open)}
-        aria-expanded=${c.open ? 'true' : 'false'}
-        aria-haspopup="listbox"
-        aria-label=${`Switch from ${playlist.name}`}
-      >
-        <img
-          class="source-card__art"
-          src=${playlist.thumbnail || thumbnailUrl(playlist.tracks[0].id)}
-          alt=""
-        />
-        <div class="source-card__copy">
-          <strong>${playlist.name}</strong>
-          <span>${playlist.kind} · ${playlist.tracks.length} videos</span>
-        </div>
-        ${unsafeHTML(icon('chevronDown', { class: 'source-card__chevron' }))}
-      </button>
+      <div class="source-card__head">
+        <button
+          type="button"
+          class="source-card__trigger"
+          @click=${() => (c.open = !c.open)}
+          aria-expanded=${c.open ? 'true' : 'false'}
+          aria-haspopup="listbox"
+          aria-label=${`Switch from ${playlist.name}`}
+        >
+          ${art}
+          <div class="source-card__copy">
+            <strong>${playlist.name}</strong>
+            <span>${playlist.kind} · ${playlist.tracks.length} videos</span>
+          </div>
+          ${unsafeHTML(icon('chevronDown', { class: 'source-card__chevron' }))}
+        </button>
+        ${c.playingMixtapeId()
+          ? html`
+              <button
+                type="button"
+                class="source-card__rename"
+                @click=${() => c.startRename()}
+                aria-label=${`Rename ${playlist.name}`}
+                title="Rename mixtape"
+              >
+                ${unsafeHTML(icon('pencil'))}
+              </button>
+            `
+          : html``}
+      </div>
 
       ${c.open ? switcherList(c, playlist) : html``}
     </div>

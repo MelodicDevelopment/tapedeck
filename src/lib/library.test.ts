@@ -5,6 +5,7 @@ import {
   convertSourceToMixtape,
   createMixtape,
   deleteMixtape,
+  renameMixtape,
   emptyLibrary,
   mergeLibrary,
   mixtapeToPlaylist,
@@ -112,6 +113,19 @@ describe('mixtapes', () => {
 
     library = toggleMixtapeTrack(library, id, track('abc'))
     expect(library.mixtapes[0].tracks.map((entry) => entry.id)).toEqual(['def'])
+  })
+
+  it('renames a mixtape, ignoring blank or unchanged names', () => {
+    const library = createMixtape(emptyLibrary(), 'Mix', track('abc'))
+    const id = library.mixtapes[0].id
+
+    const renamed = renameMixtape(library, id, '  Road trip  ')
+    expect(renamed.mixtapes[0].name).toBe('Road trip')
+    expect(renamed.mixtapes[0].tracks).toBe(library.mixtapes[0].tracks)
+
+    expect(renameMixtape(library, id, '   ')).toBe(library)
+    expect(renameMixtape(library, id, 'Mix')).toBe(library)
+    expect(renameMixtape(library, 'missing', 'Other')).toBe(library)
   })
 
   it('deletes a mixtape', () => {

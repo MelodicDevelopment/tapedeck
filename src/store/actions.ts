@@ -18,6 +18,7 @@ import {
   normalizeLibrary,
   recordPlaybackProgress,
   removeSource,
+  renameMixtape as libRenameMixtape,
   reorderMixtapeTrack as libReorderMixtapeTrack,
   setSourceTrackHidden,
   toggleMixtapeTrack as libToggleMixtapeTrack,
@@ -420,6 +421,12 @@ export function playMixtape(mixtapeId: string): void {
   } else {
     activate(key, mixtape.lastTrackId, mixtape.lastPositionSecs)
   }
+}
+
+export function renameMixtape(mixtapeId: string, name: string): void {
+  const current = library()
+  const next = libRenameMixtape(current, mixtapeId, name)
+  if (next !== current) commitLibrary(next)
 }
 
 export function requestDeleteMixtape(mixtapeId: string): void {

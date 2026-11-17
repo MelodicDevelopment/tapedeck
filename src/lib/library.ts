@@ -320,6 +320,19 @@ export function toggleMixtapeTrack(library: Library, mixtapeId: string, track: T
   }
 }
 
+/** Rename a mixtape. A blank or unchanged name leaves the library untouched. */
+export function renameMixtape(library: Library, mixtapeId: string, name: string): Library {
+  const trimmed = name.trim()
+  const target = library.mixtapes.find((mixtape) => mixtape.id === mixtapeId)
+  if (!trimmed || !target || target.name === trimmed) return library
+  return {
+    ...library,
+    mixtapes: library.mixtapes.map((mixtape) =>
+      mixtape.id === mixtapeId ? { ...mixtape, name: trimmed, updatedAt: new Date().toISOString() } : mixtape,
+    ),
+  }
+}
+
 export function deleteMixtape(library: Library, mixtapeId: string): Library {
   return {
     ...library,

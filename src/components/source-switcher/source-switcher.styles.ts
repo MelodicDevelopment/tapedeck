@@ -10,9 +10,53 @@ export const sourceSwitcherStyles = (): TemplateResult => css`
     border-bottom: 1px solid #292621;
   }
 
+  .source-card__head {
+    display: flex;
+    align-items: center;
+  }
+
+  .source-card__head--editing {
+    gap: 12px;
+    padding: 16px;
+  }
+
+  .source-card__name-input {
+    height: 36px;
+    padding: 0 10px;
+    border-radius: 9px;
+    font-size: 14px;
+    font-weight: 650;
+  }
+
+  .source-card__rename {
+    display: grid;
+    width: 28px;
+    height: 28px;
+    flex: 0 0 auto;
+    place-items: center;
+    margin: 0 12px 0 -8px;
+    border: 0;
+    border-radius: 7px;
+    color: var(--td-faint);
+    background: transparent;
+    cursor: pointer;
+    transition: background-color 120ms ease, color 120ms ease;
+  }
+
+  .source-card__rename:hover {
+    color: var(--td-text);
+    background: var(--td-raised);
+  }
+
+  .source-card__rename svg {
+    width: 14px;
+    height: 14px;
+  }
+
   .source-card__trigger {
     display: flex;
-    width: 100%;
+    min-width: 0;
+    flex: 1;
     align-items: center;
     gap: 12px;
     padding: 16px;

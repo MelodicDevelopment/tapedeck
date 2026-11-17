@@ -257,6 +257,25 @@ describe('store actions (browser build)', () => {
     expect(library().mixtapes).toHaveLength(0)
   })
 
+  it('renames the playing mixtape without disturbing playback', async () => {
+    stubResolve(twoTrackPlaylist)
+    await actions.handleLoad('https://www.youtube.com/@two-tracks')
+    const [trackA, trackB] = twoTrackPlaylist.tracks
+    actions.createMixtape('Road trip', trackA)
+    const mixtapeId = library().mixtapes[0].id
+    actions.toggleMixtapeTrack(mixtapeId, trackB)
+    actions.playMixtape(mixtapeId)
+    player.selectTrack(1)
+
+    actions.renameMixtape(mixtapeId, '  Late nights ')
+    expect(library().mixtapes[0].name).toBe('Late nights')
+    expect(activePlaylist()?.name).toBe('Late nights')
+    expect(player.queueTrackId()).toBe('trackB')
+
+    actions.renameMixtape(mixtapeId, '   ')
+    expect(library().mixtapes[0].name).toBe('Late nights')
+  })
+
   it('reorders mixtape tracks and keeps following the current track', async () => {
     stubResolve(twoTrackPlaylist)
     await actions.handleLoad('https://www.youtube.com/@two-tracks')
