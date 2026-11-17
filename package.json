@@ -1,7 +1,7 @@
 {
   "name": "tapedeck",
   "private": true,
-  "version": "0.6.1",
+  "version": "0.6.2",
   "license": "MIT",
   "author": "Rick Hopkins <support@melodic.dev>",
   "repository": {
