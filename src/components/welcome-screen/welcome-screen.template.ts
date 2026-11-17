@@ -379,7 +379,9 @@ function libraryGrid(
                         ? `Remove ${entry.data.name} from saved sources`
                         : `Delete mixtape ${entry.data.name}`}
                       @td:open=${() => c.openEntry(entry)}
+                      .renamable=${entry.type === 'mixtape'}
                       @td:remove=${() => c.removeEntry(entry)}
+                      @td:rename=${(event: CustomEvent<string>) => c.renameEntry(entry, event.detail)}
                     ></td-library-card>
                   `,
                   ),

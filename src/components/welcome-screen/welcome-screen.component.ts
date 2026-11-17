@@ -5,6 +5,7 @@ import {
   importLibrary,
   openSavedSource,
   playMixtape,
+  renameMixtape,
   removeSavedSource,
   requestDeleteMixtape,
   setUrl,
@@ -104,6 +105,10 @@ export class WelcomeScreenComponent {
       return
     }
     requestDeleteMixtape(entry.data.id)
+  }
+
+  public renameEntry(entry: LibraryEntry, name: string): void {
+    if (entry.type === 'mixtape') renameMixtape(entry.data.id, name)
   }
 
   public handleExport(): void {

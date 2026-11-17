@@ -105,6 +105,19 @@ describe('store actions (desktop build)', () => {
     expect(syncDevices().map((device) => device.name)).toEqual(['MacBook Pro', 'Mac mini'])
   })
 
+  it('keeps an edit made while a sync is in flight', async () => {
+    actions.createMixtape('Mix', { id: 'remote00001', title: 'Remote Track', artist: 'Remote Channel', duration: 200 })
+    const mixtapeId = library().mixtapes[0].id
+
+    actions.syncNow()
+    expect(syncStatus()).toBe('syncing')
+    actions.renameMixtape(mixtapeId, 'Road trip')
+
+    await vi.waitFor(() => expect(syncStatus()).toBe('synced'))
+    expect(library().mixtapes[0].name).toBe('Road trip')
+    expect(library().sources.map((entry) => entry.name)).toContain('Remote Channel')
+  })
+
   it('downloads a newer release in the background and stages it', async () => {
     await vi.waitFor(() => {
       expect(stagedUpdate()?.version).toBe('0.2.2')

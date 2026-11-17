@@ -579,17 +579,38 @@ export function importLibrary(raw: unknown): void {
 }
 
 let syncing = false
+/** A sync was requested while one was in flight; run it once that finishes. */
+let syncQueued = false
 
 export function syncNow(): void {
-  if (!desktop || syncing) return
+  if (!desktop) return
+  if (syncing) {
+    syncQueued = true
+    return
+  }
   syncing = true
   syncStatus.set('syncing')
   syncError.set('')
-  syncLibrary(library())
+  const snapshot = library()
+  syncLibrary(snapshot)
     .then((result) => {
-      suppressSyncTrigger = true
-      library.set(result.library)
-      saveLibrary(result.library)
+      const current = library()
+      if (current === snapshot) {
+        suppressSyncTrigger = true
+        library.set(result.library)
+        saveLibrary(result.library)
+      } else {
+        // The library changed during the round trip (a rename, a new track,
+        // a resume checkpoint). The result was merged from the older
+        // snapshot, so fold those local changes back in rather than
+        // overwriting them; they win ties, and go up with the next sync.
+        const merged = {
+          ...mergeLibrary(result.library, current),
+          playbackSettings: current.playbackSettings,
+        }
+        library.set(merged)
+        saveLibrary(merged)
+      }
       syncDevices.set(result.devices)
       syncStatus.set('synced')
     })
@@ -601,6 +622,10 @@ export function syncNow(): void {
     })
     .finally(() => {
       syncing = false
+      if (syncQueued) {
+        syncQueued = false
+        syncNow()
+      }
     })
 }
 
@@ -820,6 +845,7 @@ export function resetActionState(): void {
   activeKey = undefined
   suppressSyncTrigger = false
   syncing = false
+  syncQueued = false
 }
 
 // Re-exported so components have one import site for playlist context.

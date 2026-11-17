@@ -109,6 +109,24 @@ export const libraryCardStyles = (): TemplateResult => css`
     color: #e8998c;
   }
 
+  .library-grid__remove--rename {
+    right: 40px;
+  }
+
+  .library-grid__remove--rename:hover {
+    color: var(--td-accent);
+  }
+
+  .library-grid__name-input {
+    flex: 0 0 auto;
+    height: 26px;
+    margin: -4px -7px -3px;
+    padding: 0 6px;
+    border-radius: 7px;
+    font-size: 13px;
+    font-weight: 600;
+  }
+
   .library-grid__remove svg {
     width: 13px;
     height: 13px;
