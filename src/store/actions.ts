@@ -29,6 +29,7 @@ import {
 } from '../lib/library'
 import { extractYouTubeVideoId, looksLikeUrl, validateYouTubeSource, videoWatchUrl } from '../lib/validation'
 import { classifyYouTubeLink } from '../lib/youtubeLinks'
+import { toggleVideoFullscreen, wireWindowFullscreen } from '../ui/fullscreen'
 import * as player from './player'
 import {
   activePlaylist,
@@ -638,6 +639,7 @@ export async function bootstrap(): Promise<void> {
   wireEffects()
   wireMediaIntegration()
   wireKeyboardShortcuts()
+  wireWindowFullscreen()
 
   loadLibrary().then((stored) => {
     suppressSyncTrigger = true
@@ -831,6 +833,11 @@ function wireKeyboardShortcuts(): void {
     } else if (event.shiftKey && event.key.toLowerCase() === 's') {
       event.preventDefault()
       player.toggleShuffle()
+    } else if (!event.shiftKey && event.key.toLowerCase() === 'f') {
+      // Audio mode keeps the video frame collapsed; nothing to show there.
+      if (player.mode() !== 'video') return
+      event.preventDefault()
+      toggleVideoFullscreen()
     } else if (event.key === '?') {
       event.preventDefault()
       player.shortcutsOpen.set(true)

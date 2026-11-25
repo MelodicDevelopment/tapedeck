@@ -59,6 +59,29 @@ fn open_external(url: String) -> Result<(), String> {
     open::that_detached(parsed.as_str()).map_err(|error| error.to_string())
 }
 
+/// A webview configuration that lets page content (the embedded YouTube
+/// player) take an element fullscreen. `None` off the main thread or on a
+/// macOS too old to have the setting (pre-12.3), where the webview is built
+/// with its defaults instead.
+#[cfg(target_os = "macos")]
+fn fullscreen_configuration() -> Option<objc2::rc::Retained<objc2_web_kit::WKWebViewConfiguration>>
+{
+    use objc2::runtime::NSObjectProtocol;
+
+    let main_thread = objc2::MainThreadMarker::new()?;
+    // Safety: plain WebKit object construction and a property setter, on the
+    // main thread, guarded by a selector check for older systems.
+    unsafe {
+        let configuration = objc2_web_kit::WKWebViewConfiguration::new(main_thread);
+        let preferences = configuration.preferences();
+        if !preferences.respondsToSelector(objc2::sel!(setElementFullscreenEnabled:)) {
+            return None;
+        }
+        preferences.setElementFullscreenEnabled(true);
+        Some(configuration)
+    }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let builder = tauri::Builder::default()
@@ -114,7 +137,7 @@ pub fn run() {
             );
 
             let app_handle = app.handle().clone();
-            let window = WebviewWindowBuilder::new(app, "main", url)
+            let window_builder = WebviewWindowBuilder::new(app, "main", url)
                 .title("Tapedeck")
                 .inner_size(1280.0, 800.0)
                 .min_inner_size(720.0, 640.0)
@@ -147,8 +170,18 @@ pub fn run() {
                         let _ = open::that_detached(url.as_str());
                     }
                     tauri::webview::NewWindowResponse::Deny
-                })
-                .build()?;
+                });
+
+            // WKWebView ships with the Fullscreen API switched off, which
+            // leaves the YouTube player's fullscreen button dead. WebView2
+            // and WebKitGTK allow it out of the box.
+            #[cfg(target_os = "macos")]
+            let window_builder = match fullscreen_configuration() {
+                Some(configuration) => window_builder.with_webview_configuration(configuration),
+                None => window_builder,
+            };
+
+            let window = window_builder.build()?;
 
             media::init(app.handle(), &window)?;
 

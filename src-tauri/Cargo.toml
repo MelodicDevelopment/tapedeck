@@ -1,6 +1,6 @@
 [package]
 name = "tapedeck"
-version = "0.6.3"
+version = "0.6.4"
 description = "A focused desktop YouTube listening queue"
 authors = ["Melodic Development"]
 edition = "2021"
@@ -34,6 +34,12 @@ tauri-plugin-single-instance = "2"
 tauri-plugin-updater = "2"
 tokio = { version = "1.53.0", features = ["time"] }
 url = "2"
+
+# Only to hand the webview a configuration with element fullscreen enabled
+# (see `fullscreen_configuration` in src/lib.rs). Versions track Tauri's own.
+[target.'cfg(target_os = "macos")'.dependencies]
+objc2 = "0.6"
+objc2-web-kit = { version = "0.3", default-features = false, features = ["std", "WKPreferences", "WKWebViewConfiguration"] }
 
 [profile.release]
 codegen-units = 1

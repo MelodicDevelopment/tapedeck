@@ -35,6 +35,7 @@ vi.mock('@tauri-apps/plugin-process', () => ({
 
 import { invoke } from '@tauri-apps/api/core'
 import { listen } from '@tauri-apps/api/event'
+import { setFullscreenVideo } from '../ui/fullscreen'
 import * as actions from './actions'
 import * as player from './player'
 import {
@@ -187,6 +188,24 @@ describe('store actions (desktop build)', () => {
     window.dispatchEvent(new KeyboardEvent('keydown', { key: '?' }))
     expect(player.shortcutsOpen()).toBe(true)
     player.shortcutsOpen.set(false)
+  })
+
+  it('takes the video fullscreen with F, but not in audio mode', () => {
+    actions.openSavedSource('https://www.youtube.com/@RemoteChannel')
+    const iframe = document.createElement('iframe')
+    const requestFullscreen = vi.fn().mockResolvedValue(undefined)
+    iframe.requestFullscreen = requestFullscreen
+    setFullscreenVideo(() => iframe)
+
+    player.mode.set('audio')
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'f' }))
+    expect(requestFullscreen).not.toHaveBeenCalled()
+
+    player.mode.set('video')
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'f' }))
+    expect(requestFullscreen).toHaveBeenCalledTimes(1)
+
+    setFullscreenVideo(null)
   })
 
   it('blocks URL loading while signed out', async () => {

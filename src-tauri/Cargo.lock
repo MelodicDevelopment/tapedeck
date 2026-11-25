@@ -4305,12 +4305,14 @@ dependencies = [
 
 [[package]]
 name = "tapedeck"
-version = "0.6.3"
+version = "0.6.4"
 dependencies = [
  "base64 0.22.1",
  "gethostname",
  "hickory-resolver",
  "keyring",
+ "objc2",
+ "objc2-web-kit",
  "open",
  "percent-encoding",
  "rand 0.8.7",

@@ -9,6 +9,7 @@ const ROWS: { label: string; keys: string[] }[] = [
   { label: 'Volume up', keys: ['↑'] },
   { label: 'Volume down', keys: ['↓'] },
   { label: 'Toggle shuffle', keys: ['⇧', 'S'] },
+  { label: 'Fullscreen video', keys: ['F'] },
   { label: 'Shortcuts', keys: ['?'] },
   { label: 'Close', keys: ['Esc'] },
 ]

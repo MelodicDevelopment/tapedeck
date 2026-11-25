@@ -9,6 +9,7 @@ import {
   track,
   volume,
 } from '../../store/player'
+import { setFullscreenVideo } from '../../ui/fullscreen'
 import { youTubePlayerTemplate } from './youtube-player.template'
 import { youTubePlayerStyles } from './youtube-player.styles'
 
@@ -71,6 +72,7 @@ export class YouTubePlayerComponent {
   public onCreate(): void {
     this._lastSeekRequestId = this.seekTo()?.requestId ?? 0
     this.ensurePlayer()
+    setFullscreenVideo(this._fullscreenVideo)
     this._progressTimer = window.setInterval(() => {
       if (!this._ready || !this._player) return
       reportProgress(this._player.getCurrentTime(), this._player.getDuration())
@@ -85,9 +87,13 @@ export class YouTubePlayerComponent {
 
   public onDestroy(): void {
     this._disposed = true
+    setFullscreenVideo(null)
     window.clearInterval(this._progressTimer)
     this.destroyPlayer()
   }
+
+  private readonly _fullscreenVideo = (): HTMLElement | null =>
+    this.elementRef.shadowRoot?.querySelector('iframe') ?? null
 
   /** YouTube occasionally ignores the playVideo() issued from onReady and
    *  leaves the video cued/unstarted. Re-issue it while we still intend to
